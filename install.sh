@@ -68,20 +68,26 @@ install_userscript() {
     echo "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
     return
   fi
+  # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
+  local pick app="" scheme="" ext="" prof="" name=""
+  pick="$("$PY" -I "$DIR/pick_browser.py")"
+  if [[ "$pick" != "{}" ]]; then
+    local extra=0
+    IFS=$'\t' read -r app scheme ext prof name extra < <("$PY" -c 'import json,sys; d=json.load(sys.stdin); print("\t".join(str(d[k]) for k in ("app", "scheme", "id", "profile", "name", "extra")))' <<<"$pick")
+    echo
+    echo "在 $name 里打开页面（要换浏览器：BILI_OBSIDIAN_BROWSER=chrome/edge/brave 再运行一次安装）"
+    if [[ "$extra" != "0" && -n "$extra" ]]; then
+      echo "⚠️  $name 里装了不止一个 Tampermonkey（比如 Edge 商店版和 Chrome 商店版各一个）。"
+      echo "   这样油猴脚本会被装两份：另一份停在旧版本，Tampermonkey 会不停弹出更新页。"
+      echo "   打开 $scheme://extensions ，只留一个 Tampermonkey，把另一个移除。"
+    fi
+  fi
   # 油猴脚本运行时会向本地服务报到版本；已经是最新版就不用再打开安装页（以后的更新它会自己拉）。
   # 能报到也说明「允许用户脚本」是开着的，所以后面的检查也一起跳过
   local seen
   if seen="$("$PY" -I "$DIR/userscript_seen.py")"; then
     echo "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
     return
-  fi
-  # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
-  local pick app="" scheme="" ext="" prof="" name=""
-  pick="$("$PY" -I "$DIR/pick_browser.py")"
-  if [[ "$pick" != "{}" ]]; then
-    IFS=$'\t' read -r app scheme ext prof name < <("$PY" -c 'import json,sys; d=json.load(sys.stdin); print("\t".join(d[k] for k in ("app", "scheme", "id", "profile", "name")))' <<<"$pick")
-    echo
-    echo "在 $name 里打开页面（要换浏览器：BILI_OBSIDIAN_BROWSER=chrome/edge/brave 再运行一次安装）"
   fi
   if [[ -z "$app" ]]; then
     echo

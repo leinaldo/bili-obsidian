@@ -1,7 +1,7 @@
 """选出你平时看 B 站用的浏览器（装了 Tampermonkey 的那个），安装脚本在它里面打开页面。
 
 用法: python3 pick_browser.py
-输出一行 JSON：{"key", "name", "scheme", "id", "profile", "app", "exe"}；没找到装了 Tampermonkey 的浏览器时输出 {}。
+输出一行 JSON：{"key", "name", "scheme", "id", "extra", "profile", "app", "exe"}；没找到装了 Tampermonkey 的浏览器时输出 {}。
 
 怎么选：
 1. 环境变量 BILI_OBSIDIAN_BROWSER（chrome / edge / brave）指定了就用它
@@ -54,7 +54,8 @@ def find_installed():
         for prof in profiles:
             ids = [i for i in TM_IDS if os.path.isdir(os.path.join(b["root"], prof, "Extensions", i))]
             if ids:
-                hits.append(dict(b, id=ids[0], profile=os.path.join(b["root"], prof)))
+                # extra：同一个配置里还装了别的 Tampermonkey，安装脚本会提醒去掉
+                hits.append(dict(b, id=ids[0], extra=len(ids) - 1, profile=os.path.join(b["root"], prof)))
                 break
     return hits
 
@@ -134,7 +135,7 @@ def main():
         return
     pick = choose(hits)
     remember(pick["key"])
-    print(json.dumps({k: pick.get(k, "") for k in ("key", "name", "scheme", "id", "profile", "app", "exe")},
+    print(json.dumps({k: pick.get(k, "") for k in ("key", "name", "scheme", "id", "extra", "profile", "app", "exe")},
                      ensure_ascii=False))
 
 

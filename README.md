@@ -155,6 +155,7 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 | 连不上本地服务 | 服务没在跑。重新运行安装脚本，或看 `server.log` |
 | claude 失败：…OAuth… | 命令行版 claude 的登录过期了。终端里运行 `claude`，输入 `/login` |
 | opencode 失败：… | 终端里运行 `opencode models deepseek` 看模型名，再用 `opencode run -m deepseek/<模型名> "你好"` 看能不能回答。报 Model not found 就重新打开 ⚙ 选列表里的模型；不能就 `opencode auth login` 重新登录 DeepSeek |
+| （不是按钮上的提示）浏览器隔一会儿就自己弹出脚本安装页或更新页 | 多半是同一个浏览器里装了两个 Tampermonkey（Edge 里常见：Edge 商店版和 Chrome 商店版各一个），其中一个里还留着旧版脚本，每次检查更新都要你确认。到 `edge://extensions`（Chrome 是 `chrome://extensions`）只留一个 Tampermonkey。安装脚本检测到这种情况也会提醒 |
 | 设置面板提示没找到 claude / opencode | 装好对应的命令行后，重新运行安装脚本，让它记下路径 |
 | 播放器未登录 | 在这个浏览器里登录 B 站 |
 | 这个视频没有 AI 字幕 | B 站没给这个视频生成字幕，暂不支持 |

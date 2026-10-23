@@ -66,13 +66,6 @@ function Install-Userscript {
         Write-Host "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
         return
     }
-    # 油猴脚本运行时会向本地服务报到版本；已经是最新版就不用再打开安装页（以后的更新它会自己拉）。
-    # 能报到也说明「允许用户脚本」是开着的，所以后面的检查也一起跳过
-    $seen = & $Py -I (Join-Path $Dir 'userscript_seen.py')
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
-        return
-    }
     # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
     $hit = $null
     $pick = (& $Py -I (Join-Path $Dir 'pick_browser.py')) | ConvertFrom-Json
@@ -80,6 +73,18 @@ function Install-Userscript {
         $hit = @{ Exe = $pick.exe; Scheme = $pick.scheme; Id = $pick.id; Profile = $pick.profile }
         Write-Host ''
         Write-Host "在 $($pick.name) 里打开页面（要换浏览器：先设环境变量 BILI_OBSIDIAN_BROWSER=chrome/edge/brave，再运行一次安装）"
+        if ($pick.extra -gt 0) {
+            Write-Host "⚠️  $($pick.name) 里装了不止一个 Tampermonkey（比如 Edge 商店版和 Chrome 商店版各一个）。"
+            Write-Host '   这样油猴脚本会被装两份：另一份停在旧版本，Tampermonkey 会不停弹出更新页。'
+            Write-Host "   打开 $($pick.scheme)://extensions ，只留一个 Tampermonkey，把另一个移除。"
+        }
+    }
+    # 油猴脚本运行时会向本地服务报到版本；已经是最新版就不用再打开安装页（以后的更新它会自己拉）。
+    # 能报到也说明「允许用户脚本」是开着的，所以后面的检查也一起跳过
+    $seen = & $Py -I (Join-Path $Dir 'userscript_seen.py')
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
+        return
     }
     if (-not $hit) {
         Write-Host ''

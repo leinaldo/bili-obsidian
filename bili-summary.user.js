@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站总结到 Obsidian
 // @namespace    local.bili-obsidian
-// @version      0.6.2
+// @version      0.6.3
 // @description  在 B 站视频页加一个按钮：拿 AI 字幕，交给本地服务用 Claude 或 DeepSeek 总结并存进 Obsidian
 // @match        https://www.bilibili.com/video/*
 // @grant        GM_xmlhttpRequest
@@ -15,6 +15,14 @@
 
 (function () {
   'use strict';
+  // 同一个浏览器里装了两个 Tampermonkey（比如 Edge 里同时有 Edge 商店版和 Chrome 商店版）时，
+  // 脚本会跑两份、出现两个按钮。先跑的那份占个位，后来的直接退出
+  const html = document.documentElement;
+  if (html.hasAttribute('data-bili-obsidian')) {
+    console.warn('[bili-obsidian] 这个页面上已经有一份脚本在运行，这一份不再启动。浏览器里可能装了两个 Tampermonkey');
+    return;
+  }
+  html.setAttribute('data-bili-obsidian', GM_info.script.version);
   const API = 'http://127.0.0.1:17321';
   const LABEL = '总结到 Obsidian';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
