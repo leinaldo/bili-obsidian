@@ -104,7 +104,9 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 1. 检查 Chrome / Edge / Brave 里有没有装 Tampermonkey，没有就打开扩展商店，装好后回终端按回车。
 2. 在装了 Tampermonkey 的那个浏览器里打开两个页面，**这两下要你自己点**（浏览器不允许程序替你点）：
    - **Tampermonkey 安装页**：点「安装」。没弹出的话手动打开 `http://127.0.0.1:17321/bili-summary.user.js`
-   - **Tampermonkey 扩展详情页**：打开「**允许用户脚本**」开关。新版 Chrome 默认关着，不开的话脚本装上了也不会运行；已经开了就不用管
+   - **Tampermonkey 扩展详情页**：打开「**允许用户脚本**」开关。新版 Chrome 默认关着，不开的话脚本装上了也不会运行。
+     安装脚本会先只读检查这个开关：已经开了就不弹这一页；没开就弹出来，并在终端里等你打开（最多 3 分钟），检测到后提示「✓ 已开启」。
+     这个开关只能你自己点，程序改不了（浏览器把它存在带签名的配置文件里）
 3. **刷新** B 站视频页，右下角会出现紫色按钮「总结到 Obsidian」。
 
 之后油猴脚本有更新（比如重新运行一行命令或 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。

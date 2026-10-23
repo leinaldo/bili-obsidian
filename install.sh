@@ -69,12 +69,12 @@ install_userscript() {
     return
   fi
   # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
-  local base="$HOME/Library/Application Support" app="" scheme="" ext="" e dir name sch id d
+  local base="$HOME/Library/Application Support" app="" scheme="" ext="" prof="" e dir name sch id d
   for e in "Google/Chrome|Google Chrome|chrome" "Microsoft Edge|Microsoft Edge|edge" "BraveSoftware/Brave-Browser|Brave Browser|brave"; do
     IFS='|' read -r dir name sch <<<"$e"
     for id in dhdgffkkebhmkfjojejmpbldmpobfkfo iikmkjmpaadaobahmlepeloendndfphd gcalenpjmijncebpfijmoaglllgpjagf; do
       for d in "$base/$dir"/*/Extensions/$id; do
-        [[ -d "$d" ]] && { app="$name"; scheme="$sch"; ext="$id"; break 3; }
+        [[ -d "$d" ]] && { app="$name"; scheme="$sch"; ext="$id"; prof="${d%/Extensions/*}"; break 3; }
       done
     done
   done
@@ -84,18 +84,42 @@ install_userscript() {
     open "https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo"
     [[ -t 0 ]] && read -r _
   fi
+  # 「允许用户脚本」只能用户自己开；这里只读检查：0 已开，1 没开，2 查不到
+  local us=2
+  [[ -n "$prof" ]] && { "$PY" -I "$DIR/userscripts_status.py" "$prof" "$ext"; us=$?; } || true
+
   echo
+  if [[ $us == 0 ]]; then
+    echo "✓ Tampermonkey 的「允许用户脚本」已开启"
+    echo "接下来在 Tampermonkey 安装页上点「安装」，然后刷新 B 站视频页（没弹出的话手动打开 $url）"
+    open -a "$app" "$url"
+    return
+  fi
   echo "接下来在浏览器里做两件事，然后刷新 B 站视频页："
   echo "  1. Tampermonkey 安装页：点「安装」（没弹出的话手动打开 $url）"
-  if [[ -n "$app" ]]; then
-    echo "  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关（已经开了就不用管）"
-    # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
-    open -a "$app" "$scheme://extensions/?id=$ext"
-    open -a "$app" "$url"
-  else
+  if [[ -z "$app" ]]; then
     echo "  2. 打开浏览器的扩展管理页（Chrome 是 chrome://extensions），进 Tampermonkey 的「详细信息」，打开「允许用户脚本」"
     open "$url"
+    return
   fi
+  echo "  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关"
+  # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
+  open -a "$app" "$scheme://extensions/?id=$ext"
+  open -a "$app" "$url"
+  [[ $us == 1 ]] || return  # 查不到状态就不等了
+
+  echo
+  echo "等你打开「允许用户脚本」…（最多等 3 分钟，按 Ctrl+C 可跳过）"
+  local i
+  for i in $(seq 90); do
+    sleep 2
+    # 浏览器改完设置要过几秒才写进配置文件
+    if "$PY" -I "$DIR/userscripts_status.py" "$prof" "$ext"; then
+      echo "✓ 「允许用户脚本」已开启"
+      return
+    fi
+  done
+  echo "还没检测到开启。装好后如果 B 站页面上没有按钮，回到扩展详情页把「允许用户脚本」打开再刷新"
 }
 
 PORT="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$DIR/config.json")"

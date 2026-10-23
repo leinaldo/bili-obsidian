@@ -60,7 +60,7 @@ function Install-Userscript {
         if (-not (Test-Path $root)) { continue }
         foreach ($prof in Get-ChildItem $root -Directory -ErrorAction SilentlyContinue) {
             foreach ($id in $ids) {
-                if (Test-Path (Join-Path $prof.FullName "Extensions\$id")) { $hit = $b + @{ Id = $id }; break }
+                if (Test-Path (Join-Path $prof.FullName "Extensions\$id")) { $hit = $b + @{ Id = $id; Profile = $prof.FullName }; break }
             }
             if ($hit) { break }
         }
@@ -72,23 +72,50 @@ function Install-Userscript {
         Start-Process 'https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo'
         Read-Host | Out-Null
     }
+    # 「允许用户脚本」只能用户自己开；这里只读检查：0 已开，1 没开，2 查不到
+    $us = 2
+    if ($hit) {
+        & $Py -I (Join-Path $Dir 'userscripts_status.py') $hit.Profile $hit.Id
+        $us = $LASTEXITCODE
+    }
+
     Write-Host ''
+    if ($us -eq 0) {
+        Write-Host '✓ Tampermonkey 的「允许用户脚本」已开启'
+        Write-Host "接下来在 Tampermonkey 安装页上点「安装」，然后刷新 B 站视频页（没弹出的话手动打开 $url）"
+        try { Start-Process $hit.Exe -ArgumentList $url } catch { Start-Process $url }
+        return
+    }
     Write-Host '接下来在浏览器里做两件事，然后刷新 B 站视频页：'
     Write-Host "  1. Tampermonkey 安装页：点「安装」（没弹出的话手动打开 $url）"
-    if ($hit) {
-        Write-Host '  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关（已经开了就不用管）'
-        # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
-        try {
-            Start-Process $hit.Exe -ArgumentList "$($hit.Scheme)://extensions/?id=$($hit.Id)"
-            Start-Process $hit.Exe -ArgumentList $url
-            return
-        } catch {
-            Write-Host "  （没能自动打开 $($hit.Exe)，请手动打开上面两个页面）"
-        }
-    } else {
+    if (-not $hit) {
         Write-Host '  2. 打开浏览器的扩展管理页（Chrome 是 chrome://extensions），进 Tampermonkey 的「详细信息」，打开「允许用户脚本」'
+        Start-Process $url
+        return
     }
-    Start-Process $url
+    Write-Host '  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关'
+    # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
+    try {
+        Start-Process $hit.Exe -ArgumentList "$($hit.Scheme)://extensions/?id=$($hit.Id)"
+        Start-Process $hit.Exe -ArgumentList $url
+    } catch {
+        Write-Host "  （没能自动打开 $($hit.Exe)，请手动打开扩展管理页和上面的安装页）"
+        Start-Process $url
+    }
+    if ($us -ne 1) { return }  # 查不到状态就不等了
+
+    Write-Host ''
+    Write-Host '等你打开「允许用户脚本」…（最多等 3 分钟，按 Ctrl+C 可跳过）'
+    for ($i = 0; $i -lt 90; $i++) {
+        Start-Sleep -Seconds 2
+        # 浏览器改完设置要过几秒才写进配置文件
+        & $Py -I (Join-Path $Dir 'userscripts_status.py') $hit.Profile $hit.Id
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host '✓ 「允许用户脚本」已开启'
+            return
+        }
+    }
+    Write-Host '还没检测到开启。装好后如果 B 站页面上没有按钮，回到扩展详情页把「允许用户脚本」打开再刷新'
 }
 
 for ($i = 0; $i -lt 5; $i++) {
