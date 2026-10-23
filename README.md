@@ -1,6 +1,6 @@
 # bili-obsidian
 
-在 B 站视频页点一下按钮，就能用 Claude 把视频总结成笔记，存进 Obsidian。支持 macOS 和 Windows。
+在 B 站视频页点一下按钮，就能用 Claude 或 DeepSeek 把视频总结成笔记，存进 Obsidian。支持 macOS 和 Windows。
 
 ![点击按钮后的流程：获取字幕 → Claude 正在总结 → 已存入 Obsidian](docs/demo.gif)
 
@@ -39,7 +39,9 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 
 ## 准备
 
-- [Claude Code](https://docs.claude.com/claude-code)，并在终端里运行过一次 `claude` 完成登录
+- 下面两个至少装一个，用来写总结：
+  - [Claude Code](https://docs.claude.com/claude-code)：在终端里运行过一次 `claude` 完成登录
+  - [opencode](https://opencode.ai)（用 DeepSeek）：运行 `opencode auth login` 选 DeepSeek 并登录。不需要在本工具里填 API Key
 - Python 3.8+（macOS 装了 Xcode 命令行工具就有；Windows 到 python.org 下载，安装时勾选 Add to PATH）
 - 浏览器里装好 [Tampermonkey](https://www.tampermonkey.net/)
 - B 站账号已登录（AI 字幕只对登录用户可见）
@@ -72,23 +74,33 @@ Chrome 里按钮不出现的话：打开 `chrome://extensions`，进 Tampermonke
 
 ## 使用
 
-点按钮后，按钮上会依次显示：获取字幕 → 下载字幕 → Claude 正在总结 → ✓ 已存入 Obsidian。用 Sonnet 一般十几秒。
+点按钮后，按钮上会依次显示：获取字幕 → 下载字幕 → Claude（或 DeepSeek）正在总结 → ✓ 已存入 Obsidian。用 Sonnet 或 DeepSeek Flash 一般十几到二十秒。
 
+- **按钮可以拖动**：按住拖到任意位置，位置会记住。被别的扩展挡住时很有用。
+- **点按钮旁的 ⚙ 打开设置面板**，可以改：
+  - 模型：Sonnet / Opus / Haiku（走 claude 命令行），DeepSeek V4 Flash / V4 Pro（走 opencode），或自定义模型名
+  - Obsidian 库（列出本机所有库）和库里的文件夹，下方实时显示完整保存路径
+  - 附加要求：会加进给模型的指令里，比如「主要内容控制在 5 条以内」
+  - 总结完是否自动在 Obsidian 里打开这篇笔记
+
+  设置存在本地服务的 `config.json` 里，保存后下次点总结就生效，不用重启服务。
 - 分P视频每一P单独点，笔记标题后面带「P几」。
 - 同一个视频再点一次，会覆盖原来那篇笔记。
 - 视频没有 AI 字幕时，按钮会提示，不会去下音频。
 
 ## 配置
 
-`config.json`（安装脚本生成，可以手动改，改完重新运行安装脚本让服务重启）：
+日常用设置面板改就行。`config.json` 由安装脚本生成，也可以手动改，改完重新运行安装脚本让服务重启：
 
 | 字段 | 说明 | 默认 |
 |---|---|---|
 | `vault` | Obsidian 库路径 | 从 Obsidian 配置里读 |
 | `folder` | 库里存总结的文件夹 | `B站总结` |
-| `model` | 传给 `claude --model` | `sonnet` |
+| `model` | 模型名。`deepseek` 开头或 `provider/model` 格式的交给 opencode，其余交给 claude | `sonnet` |
+| `extra_prompt` | 附加要求 | 空 |
+| `open_after` | 总结完自动在 Obsidian 里打开 | `false` |
 | `port` | 本地服务端口。改了之后要重新安装一次油猴脚本 | `17321` |
-| `claude` | claude 命令行的完整路径 | 自动查找 |
+| `claude` / `opencode` | 两个命令行的完整路径 | 安装时自动查找 |
 
 ## 常见问题
 
@@ -96,6 +108,8 @@ Chrome 里按钮不出现的话：打开 `chrome://extensions`，进 Tampermonke
 |---|---|
 | 连不上本地服务 | 服务没在跑。重新运行安装脚本，或看 `server.log` |
 | claude 失败：…OAuth… | 命令行版 claude 的登录过期了。终端里运行 `claude`，输入 `/login` |
+| opencode 失败：… | 终端里运行 `opencode run -m deepseek/deepseek-v4-flash "你好"` 看能不能回答；不能就 `opencode auth login` 重新登录 DeepSeek |
+| 设置面板提示没找到 claude / opencode | 装好对应的命令行后，重新运行安装脚本，让它记下路径 |
 | 播放器未登录 | 在这个浏览器里登录 B 站 |
 | 这个视频没有 AI 字幕 | B 站没给这个视频生成字幕，暂不支持 |
 | 字幕没加载出来 | 刷新视频页再点。确认油猴脚本是最新版：浏览器打开 `http://127.0.0.1:17321/bili-summary.user.js` 重新安装 |

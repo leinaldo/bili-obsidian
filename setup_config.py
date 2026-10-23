@@ -60,6 +60,18 @@ def find_claude():
     return None
 
 
+def find_opencode():
+    found = shutil.which("opencode")
+    if found:
+        return found
+    exe = "opencode.exe" if sys.platform == "win32" else "opencode"
+    for p in (os.path.join(os.path.expanduser("~"), ".opencode", "bin", exe),
+              os.path.join(os.environ.get("APPDATA", ""), "npm", "opencode.cmd")):
+        if os.path.exists(p):
+            return p
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault")
@@ -81,15 +93,24 @@ def main():
     cfg.setdefault("model", "sonnet")
     cfg.setdefault("port", 17321)
 
-    claude = find_claude()
+    # 后台服务的 PATH 很短，这里把两个命令行的完整路径记下来
+    claude, opencode = find_claude(), find_opencode()
+    if not claude and not opencode:
+        sys.exit("claude 和 opencode 都没找到，至少装一个：\n"
+                 "  Claude Code：https://docs.claude.com/claude-code\n"
+                 "  opencode（用 DeepSeek）：https://opencode.ai，装好后运行 opencode auth login 选 DeepSeek")
+    cfg["claude"] = claude or ""
+    cfg["opencode"] = opencode or ""
+    cfg.pop("deepseek_api_key", None)
     if not claude:
-        sys.exit("找不到 claude 命令行。先安装 Claude Code：https://docs.claude.com/claude-code")
-    cfg["claude"] = claude
+        cfg["model"] = "deepseek-v4-flash" if cfg["model"] in ("sonnet", "opus", "haiku") else cfg["model"]
 
     with open(CONFIG, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
     print(f"笔记位置：{os.path.join(cfg['vault'], cfg['folder'])}")
-    print(f"claude：{claude}（模型 {cfg['model']}）")
+    print(f"模型：{cfg['model']}")
+    print(f"claude：{claude or '未安装（不能用 Claude 模型）'}")
+    print(f"opencode：{opencode or '未安装（不能用 DeepSeek）'}")
     print(f"端口：{cfg['port']}")
 
 
