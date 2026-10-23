@@ -48,6 +48,21 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 
 ## 安装
 
+### 最省事：让 AI 帮你装
+
+把下面这段话贴到 Claude Code、opencode 这类能在你电脑上执行命令的 AI 对话框里：
+
+```text
+帮我安装 https://github.com/leinaldo/bili-obsidian 。
+把仓库克隆到 ~/tools/bili-obsidian，按 README 的「准备」检查环境，缺什么告诉我；
+然后运行安装脚本（macOS 用 install.sh，Windows 用 install.cmd），
+最后告诉我还需要我手动点哪里。
+```
+
+仓库是私有的，AI 所在的电脑要能访问它（比如已经用 `gh auth login` 登录过有权限的 GitHub 账号）。
+
+### 手动安装
+
 **macOS**
 
 ```bash
