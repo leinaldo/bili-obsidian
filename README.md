@@ -128,6 +128,8 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
   - 附加要求：会加进给模型的指令里，比如「主要内容控制在 5 条以内」
   - 总结完是否自动在 Obsidian 里打开这篇笔记
 
+  <img src="docs/settings.png" alt="设置面板：模型、Obsidian 库和文件夹、附加要求、总结完自动打开" width="360">
+
   设置存在本地服务的 `config.json` 里，保存后下次点总结就生效，不用重启服务。
 - 分P视频每一P单独点，笔记标题后面带「P几」。
 - 同一个视频再点一次，会覆盖原来那篇笔记。
