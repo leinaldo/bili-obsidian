@@ -366,6 +366,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, dict(cur, vaults=vaults, has_claude=bool(CFG["claude"]),
                                         has_opencode=bool(CFG["opencode"]),
                                         deepseek_models=deepseek_models()))
+        if self.path.startswith("/hello"):
+            # 油猴脚本每次在 B 站页面运行时报到一次版本，安装脚本据此决定要不要再打开安装页
+            v = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("v", [""])[0]
+            if re.fullmatch(r"\d+(\.\d+){0,3}", v):
+                os.makedirs(CACHE_DIR, exist_ok=True)
+                with open(os.path.join(CACHE_DIR, "userscript_seen.json"), "w", encoding="utf-8") as f:
+                    json.dump({"version": v, "at": datetime.datetime.now().isoformat(timespec="seconds")}, f)
+            return self._send(200, {"ok": True})
         if self.path.startswith("/status"):
             key = self.path.partition("key=")[2]
             with lock:

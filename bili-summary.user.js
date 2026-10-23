@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站总结到 Obsidian
 // @namespace    local.bili-obsidian
-// @version      0.6.1
+// @version      0.6.2
 // @description  在 B 站视频页加一个按钮：拿 AI 字幕，交给本地服务用 Claude 或 DeepSeek 总结并存进 Obsidian
 // @match        https://www.bilibili.com/video/*
 // @grant        GM_xmlhttpRequest
@@ -147,6 +147,9 @@
       });
     });
   }
+
+  // 告诉本地服务这个脚本在跑、是哪个版本：安装脚本据此判断要不要再打开脚本安装页
+  call('GET', '/hello?v=' + encodeURIComponent(GM_info.script.version)).catch(() => {});
 
   // ---------- 设置面板 ----------
   let cfg = null;

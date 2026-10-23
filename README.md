@@ -112,6 +112,8 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 
 之后油猴脚本有更新（比如重新运行一行命令或 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。
 
+油猴脚本每次在 B 站页面运行时，会向本地服务报一下自己的版本。再次运行安装命令时，如果它已经是最新版，就不会再打开脚本安装页和扩展详情页。
+
 按钮不出现的话，多半是「允许用户脚本」没开：打开 `chrome://extensions`（Edge 是 `edge://extensions`），进 Tampermonkey 的「详细信息」打开它，再刷新 B 站。
 
 ## 使用

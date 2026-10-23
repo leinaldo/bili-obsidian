@@ -68,6 +68,13 @@ install_userscript() {
     echo "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
     return
   fi
+  # 油猴脚本运行时会向本地服务报到版本；已经是最新版就不用再打开安装页（以后的更新它会自己拉）。
+  # 能报到也说明「允许用户脚本」是开着的，所以后面的检查也一起跳过
+  local seen
+  if seen="$("$PY" -I "$DIR/userscript_seen.py")"; then
+    echo "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
+    return
+  fi
   # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
   local base="$HOME/Library/Application Support" app="" scheme="" ext="" prof="" e dir name sch id d
   for e in "Google/Chrome|Google Chrome|chrome" "Microsoft Edge|Microsoft Edge|edge" "BraveSoftware/Brave-Browser|Brave Browser|brave"; do
