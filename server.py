@@ -354,7 +354,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._allowed():
             return self._send(403, {"error": "forbidden"})
         if self.path == "/health":
-            return self._send(200, {"ok": True, "out_dir": out_dir(CFG), "model": CFG["model"]})
+            # dir 让安装脚本确认应答的是刚装好的这一份，而不是别的目录里没停掉的旧服务
+            return self._send(200, {"ok": True, "dir": HERE, "out_dir": out_dir(CFG), "model": CFG["model"]})
         if self.path == "/config":
             from setup_config import obsidian_vaults
             with cfg_lock:

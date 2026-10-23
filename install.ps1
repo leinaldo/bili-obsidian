@@ -21,10 +21,27 @@ Write-Host "Python：$Py"
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $Port = (Get-Content (Join-Path $Dir 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json).port
 
-# 停掉已在运行的旧服务
+# 停掉已在运行的旧服务：本目录的，以及占着端口的（可能是装在别的目录里的老版本，
+# 不停掉的话新服务绑不上端口，浏览器拿到的还是老目录里的旧油猴脚本）
 Get-CimInstance Win32_Process -Filter "Name like 'python%'" |
     Where-Object { $_.CommandLine -like "*$Server*" } |
     ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+$holders = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+foreach ($procId in $holders) {
+    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId"
+    if (-not $proc) { continue }
+    if ($proc.Name -like 'python*' -and $proc.CommandLine -like '*server.py*') {
+        Write-Host "停掉旧的后台服务：$($proc.CommandLine)"
+        Stop-Process -Id $procId -Force
+    } else {
+        Write-Host "✗ 端口 $Port 被别的程序占用：$($proc.Name)（PID $procId）。关掉它，或用 --port 换一个端口后重新安装"
+        exit 1
+    }
+}
+for ($i = 0; $i -lt 10 -and (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue); $i++) {
+    Start-Sleep -Milliseconds 500
+}
 
 # 启动文件夹里放快捷方式：登录时自动运行，不需要管理员权限
 $Lnk = Join-Path ([Environment]::GetFolderPath('Startup')) 'bili-obsidian.lnk'
@@ -121,7 +138,12 @@ function Install-Userscript {
 for ($i = 0; $i -lt 5; $i++) {
     Start-Sleep -Seconds 1
     try {
-        Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -Headers @{ 'X-Bili-Summary' = '1' } | Out-Null
+        $h = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -Headers @{ 'X-Bili-Summary' = '1' }
+        if ($h.dir -and ($h.dir.TrimEnd('\') -ine $Dir.TrimEnd('\'))) {
+            Write-Host "✗ 端口 $Port 上应答的是另一个目录的服务：$($h.dir)"
+            Write-Host '  在任务管理器里结束那个 pythonw.exe，再重新运行安装命令'
+            exit 1
+        }
         Write-Host "✓ 后台服务已启动（端口 $Port），登录 Windows 时会自动运行"
         Install-Userscript
         exit 0

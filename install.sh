@@ -125,7 +125,13 @@ install_userscript() {
 PORT="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$DIR/config.json")"
 for _ in 1 2 3 4 5; do
   sleep 1
-  if curl -sf -H 'X-Bili-Summary: 1' "http://127.0.0.1:$PORT/health" >/dev/null; then
+  if H="$(curl -sf -H 'X-Bili-Summary: 1' "http://127.0.0.1:$PORT/health")"; then
+    SERVED="$("$PY" -c 'import json,sys; print(json.load(sys.stdin).get("dir", ""))' <<<"$H")"
+    if [[ -n "$SERVED" && "$SERVED" != "$DIR" ]]; then
+      echo "✗ 端口 $PORT 上应答的是另一个目录的服务：$SERVED"
+      echo "  用 lsof -i :$PORT 找到它的进程并结束，再重新运行安装脚本"
+      exit 1
+    fi
     echo "✓ 后台服务已启动（端口 $PORT），开机会自动运行"
     install_userscript
     exit 0
