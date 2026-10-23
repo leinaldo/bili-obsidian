@@ -93,8 +93,15 @@ def save_settings(new):
                 CFG[k] = new[k]
         CFG["folder"] = CFG["folder"].strip().strip("/\\")
         CFG["open_after"] = bool(CFG["open_after"])
+        # 在文件现有内容上改：安装脚本可能在服务启动后又写了别的字段（比如选好的浏览器）
+        try:
+            with open(CONFIG, encoding="utf-8") as f:
+                on_disk = json.load(f)
+        except (OSError, ValueError):
+            on_disk = {}
+        on_disk.update({k: CFG[k] for k in EDITABLE})
         with open(CONFIG, "w", encoding="utf-8") as f:
-            json.dump(CFG, f, ensure_ascii=False, indent=2)
+            json.dump(on_disk, f, ensure_ascii=False, indent=2)
 
 
 _ds_models = {"at": 0, "list": []}

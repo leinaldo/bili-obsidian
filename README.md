@@ -102,7 +102,8 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 服务起来后，安装脚本会接着处理油猴脚本：
 
 1. 检查 Chrome / Edge / Brave 里有没有装 Tampermonkey，没有就打开扩展商店，装好后回终端按回车。
-2. 在装了 Tampermonkey 的那个浏览器里打开两个页面，**这两下要你自己点**（浏览器不允许程序替你点）：
+2. 在你看 B 站用的浏览器里打开两个页面。只有一个浏览器装了 Tampermonkey 就用它；Chrome、Edge 等好几个都装了的话，会问你用哪个（默认是系统默认浏览器），选过会记在 `config.json` 里，下次不再问。想换浏览器，设环境变量 `BILI_OBSIDIAN_BROWSER=chrome`（或 `edge`、`brave`）再运行一次安装。
+   **下面两下要你自己点**（浏览器不允许程序替你点）：
    - **Tampermonkey 安装页**：点「安装」。没弹出的话手动打开 `http://127.0.0.1:17321/bili-summary.user.js`
    - **Tampermonkey 扩展详情页**：打开「**允许用户脚本**」开关。新版 Chrome 默认关着，不开的话脚本装上了也不会运行。
      安装脚本会先只读检查这个开关：已经开了就跳过；没开就带你去这一页，并在终端里等你打开（最多 3 分钟），检测到后提示「✓ 已开启」。
@@ -145,6 +146,7 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 | `open_after` | 总结完自动在 Obsidian 里打开 | `false` |
 | `port` | 本地服务端口。改了之后要重新安装一次油猴脚本 | `17321` |
 | `claude` / `opencode` | 两个命令行的完整路径 | 安装时自动查找 |
+| `browser` | 你看 B 站用的浏览器（`chrome` / `edge` / `brave`），安装时在它里面打开页面 | 安装时选 |
 
 ## 常见问题
 

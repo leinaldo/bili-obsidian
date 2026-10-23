@@ -75,16 +75,14 @@ install_userscript() {
     echo "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
     return
   fi
-  # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
-  local base="$HOME/Library/Application Support" app="" scheme="" ext="" prof="" e dir name sch id d
-  for e in "Google/Chrome|Google Chrome|chrome" "Microsoft Edge|Microsoft Edge|edge" "BraveSoftware/Brave-Browser|Brave Browser|brave"; do
-    IFS='|' read -r dir name sch <<<"$e"
-    for id in dhdgffkkebhmkfjojejmpbldmpobfkfo iikmkjmpaadaobahmlepeloendndfphd gcalenpjmijncebpfijmoaglllgpjagf; do
-      for d in "$base/$dir"/*/Extensions/$id; do
-        [[ -d "$d" ]] && { app="$name"; scheme="$sch"; ext="$id"; prof="${d%/Extensions/*}"; break 3; }
-      done
-    done
-  done
+  # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
+  local pick app="" scheme="" ext="" prof="" name=""
+  pick="$("$PY" -I "$DIR/pick_browser.py")"
+  if [[ "$pick" != "{}" ]]; then
+    IFS=$'\t' read -r app scheme ext prof name < <("$PY" -c 'import json,sys; d=json.load(sys.stdin); print("\t".join(d[k] for k in ("app", "scheme", "id", "profile", "name")))' <<<"$pick")
+    echo
+    echo "在 $name 里打开页面（要换浏览器：BILI_OBSIDIAN_BROWSER=chrome/edge/brave 再运行一次安装）"
+  fi
   if [[ -z "$app" ]]; then
     echo
     echo "没检测到 Tampermonkey，正在打开扩展商店，装好后回到终端按回车继续"

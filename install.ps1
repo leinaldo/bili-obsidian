@@ -2,6 +2,8 @@
 # 用法: 双击 install.cmd；或 powershell -ExecutionPolicy Bypass -File install.ps1 [--vault 库路径] [--folder 文件夹名] [--model sonnet] [--port 17321]
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+# 让 Python 的输出也用 UTF-8，不然中文用户名路径之类的会在 PowerShell 里变成乱码
+$env:PYTHONIOENCODING = 'utf-8'
 $Dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Server = Join-Path $Dir 'server.py'
 
@@ -71,24 +73,13 @@ function Install-Userscript {
         Write-Host "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
         return
     }
-    # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
-    $ids = 'dhdgffkkebhmkfjojejmpbldmpobfkfo', 'iikmkjmpaadaobahmlepeloendndfphd', 'gcalenpjmijncebpfijmoaglllgpjagf'
-    $browsers = @(
-        @{ Dir = 'Google\Chrome\User Data'; Exe = 'chrome'; Scheme = 'chrome' },
-        @{ Dir = 'Microsoft\Edge\User Data'; Exe = 'msedge'; Scheme = 'edge' },
-        @{ Dir = 'BraveSoftware\Brave-Browser\User Data'; Exe = 'brave'; Scheme = 'brave' }
-    )
+    # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
     $hit = $null
-    foreach ($b in $browsers) {
-        $root = Join-Path $env:LOCALAPPDATA $b.Dir
-        if (-not (Test-Path $root)) { continue }
-        foreach ($prof in Get-ChildItem $root -Directory -ErrorAction SilentlyContinue) {
-            foreach ($id in $ids) {
-                if (Test-Path (Join-Path $prof.FullName "Extensions\$id")) { $hit = $b + @{ Id = $id; Profile = $prof.FullName }; break }
-            }
-            if ($hit) { break }
-        }
-        if ($hit) { break }
+    $pick = (& $Py -I (Join-Path $Dir 'pick_browser.py')) | ConvertFrom-Json
+    if ($pick.key) {
+        $hit = @{ Exe = $pick.exe; Scheme = $pick.scheme; Id = $pick.id; Profile = $pick.profile }
+        Write-Host ''
+        Write-Host "在 $($pick.name) 里打开页面（要换浏览器：先设环境变量 BILI_OBSIDIAN_BROWSER=chrome/edge/brave，再运行一次安装）"
     }
     if (-not $hit) {
         Write-Host ''
