@@ -48,20 +48,42 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 
 ## 安装
 
-### 最省事：让 AI 帮你装
+### 一行命令（推荐）
+
+不用克隆仓库，复制一行命令运行即可。它会把代码下载到 `~/tools/bili-obsidian`，再运行安装脚本。
+
+**macOS**（终端里运行）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.sh | bash
+```
+
+**Windows**（PowerShell 里运行）：
+
+```powershell
+irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
+```
+
+**更新**：再运行一次同样的命令就行。你的设置（`config.json`）会保留，油猴脚本会自动拉新版。
+
+- 想换安装位置：先设环境变量 `BILI_OBSIDIAN_DIR`
+- macOS 给安装脚本传参数：`curl … | bash -s -- --vault ~/my-vault`
+- 更新时不想弹浏览器：先设环境变量 `BILI_OBSIDIAN_NO_BROWSER=1`
+
+### 让 AI 帮你装
 
 把下面这段话贴到 Claude Code、opencode 这类能在你电脑上执行命令的 AI 对话框里：
 
 ```text
 帮我安装 https://github.com/leinaldo/bili-obsidian 。
-把仓库克隆到 ~/tools/bili-obsidian，按 README 的「准备」检查环境，缺什么告诉我；
-然后运行安装脚本（macOS 用 install.sh，Windows 用 install.cmd），
+先按 README 的「准备」检查环境，缺什么告诉我；
+然后用 README 里「一行命令」的方式安装，
 最后告诉我还需要我手动点哪里。
 ```
 
-仓库是私有的，AI 所在的电脑要能访问它（比如已经用 `gh auth login` 登录过有权限的 GitHub 账号）。
-
 ### 手动安装
+
+先把仓库克隆或下载到本地，然后：
 
 **macOS**
 
@@ -83,7 +105,7 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 2. 在浏览器里打开 `http://127.0.0.1:17321/bili-summary.user.js`，Tampermonkey 会弹出安装页，**点「安装」**。浏览器不允许程序替你点，这是唯一要手动点的一下。
 3. **刷新** B 站视频页，右下角会出现紫色按钮「总结到 Obsidian」。
 
-之后油猴脚本有更新（比如 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。
+之后油猴脚本有更新（比如重新运行一行命令或 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。
 
 Chrome 里按钮不出现的话：打开 `chrome://extensions`，进 Tampermonkey 的「详细信息」，打开「允许用户脚本」，再刷新 B 站。
 

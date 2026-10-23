@@ -47,13 +47,27 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 
+# bootout 是异步的：旧服务没完全卸载时立刻 bootstrap 会报 Input/output error，所以等它卸干净再注册
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+for _ in $(seq 20); do
+  launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || break
+  sleep 0.5
+done
+for attempt in 1 2 3; do
+  launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null && break
+  [[ $attempt == 3 ]] && { echo "✗ 注册后台服务失败，稍等几秒再运行一次安装脚本"; exit 1; }
+  sleep 1
+done
 
 # 打开油猴脚本的地址，Tampermonkey 会弹出安装页，点「安装」即可；以后脚本更新也会自动拉取。
 # 浏览器不允许程序替你点安装，这一下只能你自己点。
 install_userscript() {
   local url="http://127.0.0.1:$PORT/bili-summary.user.js"
+  # 已经装过油猴脚本时（比如只是更新），设 BILI_OBSIDIAN_NO_BROWSER=1 跳过打开浏览器；脚本会自己从本地服务更新
+  if [[ -n "${BILI_OBSIDIAN_NO_BROWSER:-}" ]]; then
+    echo "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
+    return
+  fi
   # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版），任一浏览器的任一配置里有就算装了
   local found="" d
   for d in "$HOME/Library/Application Support/"{Google/Chrome,Microsoft\ Edge,BraveSoftware/Brave-Browser}/*/Extensions/{dhdgffkkebhmkfjojejmpbldmpobfkfo,iikmkjmpaadaobahmlepeloendndfphd,gcalenpjmijncebpfijmoaglllgpjagf}; do

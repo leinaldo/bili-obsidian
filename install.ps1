@@ -42,6 +42,11 @@ Start-Process -FilePath $Pyw -ArgumentList "`"$Server`"" -WorkingDirectory $Dir 
 # 浏览器不允许程序替你点安装，这一下只能你自己点。
 function Install-Userscript {
     $url = "http://127.0.0.1:$Port/bili-summary.user.js"
+    # 已经装过油猴脚本时（比如只是更新），设 BILI_OBSIDIAN_NO_BROWSER=1 跳过打开浏览器；脚本会自己从本地服务更新
+    if ($env:BILI_OBSIDIAN_NO_BROWSER) {
+        Write-Host "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
+        return
+    }
     # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版）
     $ids = 'dhdgffkkebhmkfjojejmpbldmpobfkfo', 'iikmkjmpaadaobahmlepeloendndfphd', 'gcalenpjmijncebpfijmoaglllgpjagf'
     $roots = 'Google\Chrome\User Data', 'Microsoft\Edge\User Data', 'BraveSoftware\Brave-Browser\User Data' |
