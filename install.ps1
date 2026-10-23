@@ -110,13 +110,22 @@ function Install-Userscript {
         Start-Process $url
         return
     }
+    # Windows 上浏览器会忽略命令行传进来的 chrome:// / edge:// 地址（只放行网页地址），
+    # 没法替你打开扩展详情页，所以把地址复制到剪贴板，让你粘贴到地址栏
+    $extUrl = "$($hit.Scheme)://extensions/?id=$($hit.Id)"
+    $copied = $false
+    try { Set-Clipboard -Value $extUrl; $copied = $true } catch {}
     Write-Host '  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关'
-    # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
+    if ($copied) {
+        Write-Host "     浏览器不允许外部程序直接打开这个页面，地址已复制到剪贴板："
+    } else {
+        Write-Host "     浏览器不允许外部程序直接打开这个页面，请手动复制下面的地址："
+    }
+    Write-Host "     $extUrl"
+    Write-Host '     在浏览器地址栏里粘贴（Ctrl+V）并回车，就能看到这个开关'
     try {
-        Start-Process $hit.Exe -ArgumentList "$($hit.Scheme)://extensions/?id=$($hit.Id)"
         Start-Process $hit.Exe -ArgumentList $url
     } catch {
-        Write-Host "  （没能自动打开 $($hit.Exe)，请手动打开扩展管理页和上面的安装页）"
         Start-Process $url
     }
     if ($us -ne 1) { return }  # 查不到状态就不等了
