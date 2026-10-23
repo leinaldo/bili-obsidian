@@ -102,12 +102,14 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 服务起来后，安装脚本会接着处理油猴脚本：
 
 1. 检查 Chrome / Edge / Brave 里有没有装 Tampermonkey，没有就打开扩展商店，装好后回终端按回车。
-2. 在浏览器里打开 `http://127.0.0.1:17321/bili-summary.user.js`，Tampermonkey 会弹出安装页，**点「安装」**。浏览器不允许程序替你点，这是唯一要手动点的一下。
+2. 在装了 Tampermonkey 的那个浏览器里打开两个页面，**这两下要你自己点**（浏览器不允许程序替你点）：
+   - **Tampermonkey 安装页**：点「安装」。没弹出的话手动打开 `http://127.0.0.1:17321/bili-summary.user.js`
+   - **Tampermonkey 扩展详情页**：打开「**允许用户脚本**」开关。新版 Chrome 默认关着，不开的话脚本装上了也不会运行；已经开了就不用管
 3. **刷新** B 站视频页，右下角会出现紫色按钮「总结到 Obsidian」。
 
 之后油猴脚本有更新（比如重新运行一行命令或 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。
 
-Chrome 里按钮不出现的话：打开 `chrome://extensions`，进 Tampermonkey 的「详细信息」，打开「允许用户脚本」，再刷新 B 站。
+按钮不出现的话，多半是「允许用户脚本」没开：打开 `chrome://extensions`（Edge 是 `edge://extensions`），进 Tampermonkey 的「详细信息」打开它，再刷新 B 站。
 
 ## 使用
 

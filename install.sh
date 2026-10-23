@@ -68,22 +68,34 @@ install_userscript() {
     echo "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
     return
   fi
-  # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版），任一浏览器的任一配置里有就算装了
-  local found="" d
-  for d in "$HOME/Library/Application Support/"{Google/Chrome,Microsoft\ Edge,BraveSoftware/Brave-Browser}/*/Extensions/{dhdgffkkebhmkfjojejmpbldmpobfkfo,iikmkjmpaadaobahmlepeloendndfphd,gcalenpjmijncebpfijmoaglllgpjagf}; do
-    [[ -d "$d" ]] && { found=1; break; }
+  # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
+  local base="$HOME/Library/Application Support" app="" scheme="" ext="" e dir name sch id d
+  for e in "Google/Chrome|Google Chrome|chrome" "Microsoft Edge|Microsoft Edge|edge" "BraveSoftware/Brave-Browser|Brave Browser|brave"; do
+    IFS='|' read -r dir name sch <<<"$e"
+    for id in dhdgffkkebhmkfjojejmpbldmpobfkfo iikmkjmpaadaobahmlepeloendndfphd gcalenpjmijncebpfijmoaglllgpjagf; do
+      for d in "$base/$dir"/*/Extensions/$id; do
+        [[ -d "$d" ]] && { app="$name"; scheme="$sch"; ext="$id"; break 3; }
+      done
+    done
   done
-  if [[ -z "$found" ]]; then
+  if [[ -z "$app" ]]; then
     echo
     echo "没检测到 Tampermonkey，正在打开扩展商店，装好后回到终端按回车继续"
     open "https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo"
     [[ -t 0 ]] && read -r _
   fi
   echo
-  echo "正在打开油猴脚本安装页，在 Tampermonkey 页面上点「安装」即可"
-  echo "（没弹出的话手动打开：$url）"
-  echo "Chrome 里按钮不出现：到扩展管理页打开 Tampermonkey 的「允许用户脚本」，再刷新 B 站"
-  open "$url"
+  echo "接下来在浏览器里做两件事，然后刷新 B 站视频页："
+  echo "  1. Tampermonkey 安装页：点「安装」（没弹出的话手动打开 $url）"
+  if [[ -n "$app" ]]; then
+    echo "  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关（已经开了就不用管）"
+    # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
+    open -a "$app" "$scheme://extensions/?id=$ext"
+    open -a "$app" "$url"
+  else
+    echo "  2. 打开浏览器的扩展管理页（Chrome 是 chrome://extensions），进 Tampermonkey 的「详细信息」，打开「允许用户脚本」"
+    open "$url"
+  fi
 }
 
 PORT="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$DIR/config.json")"

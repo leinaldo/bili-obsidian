@@ -47,23 +47,47 @@ function Install-Userscript {
         Write-Host "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
         return
     }
-    # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版）
+    # 找装了 Tampermonkey 的浏览器（扩展 ID 含 Edge 商店版和测试版），之后的页面都在这个浏览器里打开
     $ids = 'dhdgffkkebhmkfjojejmpbldmpobfkfo', 'iikmkjmpaadaobahmlepeloendndfphd', 'gcalenpjmijncebpfijmoaglllgpjagf'
-    $roots = 'Google\Chrome\User Data', 'Microsoft\Edge\User Data', 'BraveSoftware\Brave-Browser\User Data' |
-        ForEach-Object { Join-Path $env:LOCALAPPDATA $_ }
-    $found = $roots | Where-Object { Test-Path $_ } |
-        ForEach-Object { Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue } |
-        Where-Object { $p = $_.FullName; $ids | Where-Object { Test-Path (Join-Path $p "Extensions\$_") } }
-    if (-not $found) {
+    $browsers = @(
+        @{ Dir = 'Google\Chrome\User Data'; Exe = 'chrome'; Scheme = 'chrome' },
+        @{ Dir = 'Microsoft\Edge\User Data'; Exe = 'msedge'; Scheme = 'edge' },
+        @{ Dir = 'BraveSoftware\Brave-Browser\User Data'; Exe = 'brave'; Scheme = 'brave' }
+    )
+    $hit = $null
+    foreach ($b in $browsers) {
+        $root = Join-Path $env:LOCALAPPDATA $b.Dir
+        if (-not (Test-Path $root)) { continue }
+        foreach ($prof in Get-ChildItem $root -Directory -ErrorAction SilentlyContinue) {
+            foreach ($id in $ids) {
+                if (Test-Path (Join-Path $prof.FullName "Extensions\$id")) { $hit = $b + @{ Id = $id }; break }
+            }
+            if ($hit) { break }
+        }
+        if ($hit) { break }
+    }
+    if (-not $hit) {
         Write-Host ''
         Write-Host '没检测到 Tampermonkey，正在打开扩展商店，装好后回到这里按回车继续'
         Start-Process 'https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo'
         Read-Host | Out-Null
     }
     Write-Host ''
-    Write-Host '正在打开油猴脚本安装页，在 Tampermonkey 页面上点「安装」即可'
-    Write-Host "（没弹出的话手动打开：$url）"
-    Write-Host 'Chrome 里按钮不出现：到扩展管理页打开 Tampermonkey 的「允许用户脚本」，再刷新 B 站'
+    Write-Host '接下来在浏览器里做两件事，然后刷新 B 站视频页：'
+    Write-Host "  1. Tampermonkey 安装页：点「安装」（没弹出的话手动打开 $url）"
+    if ($hit) {
+        Write-Host '  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关（已经开了就不用管）'
+        # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
+        try {
+            Start-Process $hit.Exe -ArgumentList "$($hit.Scheme)://extensions/?id=$($hit.Id)"
+            Start-Process $hit.Exe -ArgumentList $url
+            return
+        } catch {
+            Write-Host "  （没能自动打开 $($hit.Exe)，请手动打开上面两个页面）"
+        }
+    } else {
+        Write-Host '  2. 打开浏览器的扩展管理页（Chrome 是 chrome://extensions），进 Tampermonkey 的「详细信息」，打开「允许用户脚本」'
+    }
     Start-Process $url
 }
 
