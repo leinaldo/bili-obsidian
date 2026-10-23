@@ -44,6 +44,7 @@ CFG = load_config()
 OUT_DIR = os.path.join(os.path.expanduser(CFG["vault"]), CFG["folder"])
 # macOS 后台进程没有 ~/Downloads 的访问权限，字幕缓存放在本目录
 CACHE_DIR = os.path.join(HERE, "cache")
+USERSCRIPT = "bili-summary.user.js"
 LOG = open(os.path.join(HERE, "server.log"), "a", encoding="utf-8", buffering=1)
 
 jobs = {}  # key -> {"state": queued|running|done|error, "msg": str, "file": str}
@@ -203,6 +204,17 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("X-Bili-Summary") == "1"
 
     def do_GET(self):
+        # 油猴脚本本身是公开代码，不需要校验头；浏览器打开这个地址时 Tampermonkey
+        # 会弹出安装页，之后也按脚本里的 @updateURL 从这里自动更新
+        if self.path == "/" + USERSCRIPT:
+            with open(os.path.join(HERE, USERSCRIPT), encoding="utf-8") as f:
+                data = f.read().replace("127.0.0.1:17321", f"127.0.0.1:{CFG['port']}").encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if not self._allowed():
             return self._send(403, {"error": "forbidden"})
         if self.path == "/health":

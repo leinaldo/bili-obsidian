@@ -32,7 +32,15 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 ./install.sh --vault ~/my-vault --folder B站总结 --model sonnet
 ```
 
-装完后，在 Tampermonkey 里新建脚本，把 `bili-summary.user.js` 的内容整个粘进去保存，再**刷新** B 站视频页。右下角会出现紫色按钮「总结到 Obsidian」。
+服务起来后，安装脚本会接着处理油猴脚本：
+
+1. 检查 Chrome / Edge / Brave 里有没有装 Tampermonkey，没有就打开扩展商店，装好后回终端按回车。
+2. 在浏览器里打开 `http://127.0.0.1:17321/bili-summary.user.js`，Tampermonkey 会弹出安装页，**点「安装」**。浏览器不允许程序替你点，这是唯一要手动点的一下。
+3. **刷新** B 站视频页，右下角会出现紫色按钮「总结到 Obsidian」。
+
+之后油猴脚本有更新（比如 `git pull` 之后），Tampermonkey 会按 `@updateURL` 从本地服务自动拉新版，不用再手动装。
+
+Chrome 里按钮不出现的话：打开 `chrome://extensions`，进 Tampermonkey 的「详细信息」，打开「允许用户脚本」，再刷新 B 站。
 
 ## 使用
 
@@ -51,7 +59,7 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 | `vault` | Obsidian 库路径 | 从 Obsidian 配置里读 |
 | `folder` | 库里存总结的文件夹 | `B站总结` |
 | `model` | 传给 `claude --model` | `sonnet` |
-| `port` | 本地服务端口。改了的话，油猴脚本里的 `API` 也要改 | `17321` |
+| `port` | 本地服务端口。改了之后要重新安装一次油猴脚本 | `17321` |
 | `claude` | claude 命令行的完整路径 | 自动查找 |
 
 ## 常见问题
@@ -62,7 +70,7 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
 | claude 失败：…OAuth… | 命令行版 claude 的登录过期了。终端里运行 `claude`，输入 `/login` |
 | 播放器未登录 | 在这个浏览器里登录 B 站 |
 | 这个视频没有 AI 字幕 | B 站没给这个视频生成字幕，暂不支持 |
-| 字幕没加载出来 | 刷新视频页再点。确认油猴脚本是最新版（需要 `@run-at document-start`） |
+| 字幕没加载出来 | 刷新视频页再点。确认油猴脚本是最新版：浏览器打开 `http://127.0.0.1:17321/bili-summary.user.js` 重新安装 |
 
 macOS 上，如果仓库或 Obsidian 库放在「文稿 / 桌面 / 下载」或 iCloud 里，后台服务可能没有读写权限。安装脚本会提示；需要时到「系统设置 → 隐私与安全性 → 完全磁盘访问权限」里加上安装时显示的那个 python3。
 

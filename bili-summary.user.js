@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         B站总结到 Obsidian
 // @namespace    local.bili-obsidian
-// @version      0.2.0
+// @version      0.3.0
 // @description  在 B 站视频页加一个按钮：拿 AI 字幕，交给本地服务用 Claude 总结并存进 Obsidian
 // @match        https://www.bilibili.com/video/*
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
 // @run-at       document-start
+// @updateURL    http://127.0.0.1:17321/bili-summary.user.js
+// @downloadURL  http://127.0.0.1:17321/bili-summary.user.js
 // ==/UserScript==
 
 (function () {

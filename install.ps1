@@ -38,14 +38,36 @@ $S.Save()
 
 Start-Process -FilePath $Pyw -ArgumentList "`"$Server`"" -WorkingDirectory $Dir -WindowStyle Hidden
 
+# 打开油猴脚本的地址，Tampermonkey 会弹出安装页，点「安装」即可；以后脚本更新也会自动拉取。
+# 浏览器不允许程序替你点安装，这一下只能你自己点。
+function Install-Userscript {
+    $url = "http://127.0.0.1:$Port/bili-summary.user.js"
+    # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版）
+    $ids = 'dhdgffkkebhmkfjojejmpbldmpobfkfo', 'iikmkjmpaadaobahmlepeloendndfphd', 'gcalenpjmijncebpfijmoaglllgpjagf'
+    $roots = 'Google\Chrome\User Data', 'Microsoft\Edge\User Data', 'BraveSoftware\Brave-Browser\User Data' |
+        ForEach-Object { Join-Path $env:LOCALAPPDATA $_ }
+    $found = $roots | Where-Object { Test-Path $_ } |
+        ForEach-Object { Get-ChildItem $_ -Directory -ErrorAction SilentlyContinue } |
+        Where-Object { $p = $_.FullName; $ids | Where-Object { Test-Path (Join-Path $p "Extensions\$_") } }
+    if (-not $found) {
+        Write-Host ''
+        Write-Host '没检测到 Tampermonkey，正在打开扩展商店，装好后回到这里按回车继续'
+        Start-Process 'https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo'
+        Read-Host | Out-Null
+    }
+    Write-Host ''
+    Write-Host '正在打开油猴脚本安装页，在 Tampermonkey 页面上点「安装」即可'
+    Write-Host "（没弹出的话手动打开：$url）"
+    Write-Host 'Chrome 里按钮不出现：到扩展管理页打开 Tampermonkey 的「允许用户脚本」，再刷新 B 站'
+    Start-Process $url
+}
+
 for ($i = 0; $i -lt 5; $i++) {
     Start-Sleep -Seconds 1
     try {
         Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -Headers @{ 'X-Bili-Summary' = '1' } | Out-Null
         Write-Host "✓ 后台服务已启动（端口 $Port），登录 Windows 时会自动运行"
-        Write-Host ''
-        Write-Host '最后一步：在浏览器装 Tampermonkey，新建脚本，粘贴下面这个文件的内容并保存：'
-        Write-Host "  $(Join-Path $Dir 'bili-summary.user.js')"
+        Install-Userscript
         exit 0
     } catch {}
 }

@@ -50,14 +50,34 @@ PLIST
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
+# 打开油猴脚本的地址，Tampermonkey 会弹出安装页，点「安装」即可；以后脚本更新也会自动拉取。
+# 浏览器不允许程序替你点安装，这一下只能你自己点。
+install_userscript() {
+  local url="http://127.0.0.1:$PORT/bili-summary.user.js"
+  # Tampermonkey 在 Chrome / Edge 商店里的扩展 ID（含测试版），任一浏览器的任一配置里有就算装了
+  local found="" d
+  for d in "$HOME/Library/Application Support/"{Google/Chrome,Microsoft\ Edge,BraveSoftware/Brave-Browser}/*/Extensions/{dhdgffkkebhmkfjojejmpbldmpobfkfo,iikmkjmpaadaobahmlepeloendndfphd,gcalenpjmijncebpfijmoaglllgpjagf}; do
+    [[ -d "$d" ]] && { found=1; break; }
+  done
+  if [[ -z "$found" ]]; then
+    echo
+    echo "没检测到 Tampermonkey，正在打开扩展商店，装好后回到终端按回车继续"
+    open "https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo"
+    [[ -t 0 ]] && read -r _
+  fi
+  echo
+  echo "正在打开油猴脚本安装页，在 Tampermonkey 页面上点「安装」即可"
+  echo "（没弹出的话手动打开：$url）"
+  echo "Chrome 里按钮不出现：到扩展管理页打开 Tampermonkey 的「允许用户脚本」，再刷新 B 站"
+  open "$url"
+}
+
 PORT="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$DIR/config.json")"
 for _ in 1 2 3 4 5; do
   sleep 1
   if curl -sf -H 'X-Bili-Summary: 1' "http://127.0.0.1:$PORT/health" >/dev/null; then
     echo "✓ 后台服务已启动（端口 $PORT），开机会自动运行"
-    echo
-    echo "最后一步：在浏览器装 Tampermonkey，新建脚本，粘贴下面这个文件的内容并保存："
-    echo "  $DIR/bili-summary.user.js"
+    install_userscript
     exit 0
   fi
 done
