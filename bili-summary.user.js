@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站总结到 Obsidian
 // @namespace    local.bili-obsidian
-// @version      0.6.0
+// @version      0.6.1
 // @description  在 B 站视频页加一个按钮：拿 AI 字幕，交给本地服务用 Claude 或 DeepSeek 总结并存进 Obsidian
 // @match        https://www.bilibili.com/video/*
 // @grant        GM_xmlhttpRequest
@@ -34,10 +34,11 @@
     ['sonnet', 'Sonnet（推荐，快）'],
     ['opus', 'Opus（更细致，更耗额度）'],
     ['haiku', 'Haiku（最快最省）'],
-    ['deepseek-v4-flash', 'DeepSeek V4 Flash（快、便宜）'],
-    ['deepseek-v4-pro', 'DeepSeek V4 Pro（更强）'],
-    ['', '自定义…'],
   ];
+  // DeepSeek 的模型名会变（比如 v4-flash 改名成 flash），所以不写死，打开面板时从本机 opencode 读
+  const dsLabel = m => /flash/.test(m) ? `DeepSeek ${m.replace(/^deepseek-/, '')}（快、便宜）`
+    : /pro/.test(m) ? `DeepSeek ${m.replace(/^deepseek-/, '')}（更强）` : `DeepSeek ${m.replace(/^deepseek-/, '')}`;
+  const modelOptions = (ds = []) => [...MODELS, ...ds.map(m => [m, dsLabel(m)]), ['', '自定义…']];
 
   // 界面放进 Shadow DOM，B 站的样式影响不到它，它也不影响 B 站
   const host = document.createElement('div');
@@ -78,7 +79,7 @@
 <div class="panel" hidden>
   <h3>总结设置</h3>
   <label>模型</label>
-  <select class="model">${MODELS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
+  <select class="model"></select>
   <input type="text" class="model-custom" placeholder="如 claude-sonnet-5-5；provider/model 格式交给 opencode" hidden>
   <div class="hint engine"></div>
   <label>Obsidian 库</label>
@@ -182,7 +183,10 @@
     } catch (e) {
       return msg(e.message, 'err');
     }
-    const known = MODELS.some(([v]) => v && v === cfg.model);
+    const opts = modelOptions(cfg.deepseek_models);
+    $('.model').innerHTML = opts.map(() => '<option></option>').join('');
+    [...$('.model').options].forEach((o, i) => { o.value = opts[i][0]; o.textContent = opts[i][1]; });
+    const known = opts.some(([v]) => v && v === cfg.model);
     $('.model').value = known ? cfg.model : '';
     $('.model-custom').hidden = known;
     $('.model-custom').value = known ? '' : cfg.model;

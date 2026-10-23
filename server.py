@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -94,6 +95,27 @@ def save_settings(new):
         CFG["open_after"] = bool(CFG["open_after"])
         with open(CONFIG, "w", encoding="utf-8") as f:
             json.dump(CFG, f, ensure_ascii=False, indent=2)
+
+
+_ds_models = {"at": 0, "list": []}
+
+
+def deepseek_models():
+    """本机 opencode 里当前可用的 DeepSeek 模型名（不带 deepseek/ 前缀），缓存 10 分钟。"""
+    if not CFG["opencode"]:
+        return []
+    if time.time() - _ds_models["at"] < 600 and _ds_models["list"]:
+        return _ds_models["list"]
+    try:
+        r = subprocess.run([CFG["opencode"], "models", "deepseek"], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, encoding="utf-8", timeout=30, **NO_WINDOW)
+        found = [ln.strip()[len("deepseek/"):] for ln in r.stdout.splitlines()
+                 if ln.strip().startswith("deepseek/")]
+    except Exception as e:  # noqa: BLE001 — 读不到列表就让面板只显示 Claude 模型和自定义
+        log(f"读取 opencode 模型列表失败：{e}")
+        found = []
+    _ds_models.update(at=time.time(), list=found)
+    return found
 
 
 def summarize_claude(cfg, prompt):
@@ -341,7 +363,8 @@ class Handler(BaseHTTPRequestHandler):
             if cur["vault"] not in vaults:
                 vaults.insert(0, cur["vault"])
             return self._send(200, dict(cur, vaults=vaults, has_claude=bool(CFG["claude"]),
-                                        has_opencode=bool(CFG["opencode"])))
+                                        has_opencode=bool(CFG["opencode"]),
+                                        deepseek_models=deepseek_models()))
         if self.path.startswith("/status"):
             key = self.path.partition("key=")[2]
             with lock:
