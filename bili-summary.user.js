@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         B站总结到 Obsidian
 // @namespace    local.bili-obsidian
-// @version      0.6.3
-// @description  在 B 站视频页加一个按钮：拿 AI 字幕，交给本地服务用 Claude 或 DeepSeek 总结并存进 Obsidian
+// @version      0.7.0
+// @description  在 B 站视频页加一个按钮：拿 AI 字幕（没有就让本地服务转写音频），交给本地服务用 Claude 或 DeepSeek 总结并存进 Obsidian
 // @match        https://www.bilibili.com/video/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -279,7 +279,11 @@
       const p = Number(new URLSearchParams(location.search).get('p') || 1);
       if (!bvid) throw new Error('找不到 BV 号');
       setBtn('获取字幕…', true);
-      const url = await subtitleUrl();
+      // 拿不到字幕就不带地址，本地服务会下载音频转写
+      const url = await subtitleUrl().catch(e => {
+        console.warn('[bili-obsidian] 拿不到字幕，改为转写音频：', e.message);
+        return '';
+      });
       const { key } = await call('POST', '/summarize', { bvid, p, subtitle_url: url });
       for (;;) {
         await sleep(2000);

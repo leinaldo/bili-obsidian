@@ -2,6 +2,7 @@
 
 油猴脚本在视频页拿到字幕地址后 POST 到这里；本服务下载字幕、调用 `claude -p`
 写总结，存进 Obsidian 库里的总结文件夹，完成后弹系统通知。
+视频没有 AI 字幕时，油猴脚本不带字幕地址，本服务改为下载音频、用 asr.py 转写。
 
 配置在同目录的 config.json（由安装脚本生成，见 setup_config.py）。
 
@@ -42,6 +43,7 @@ def load_config():
     cfg.setdefault("model", "sonnet")
     cfg.setdefault("extra_prompt", "")
     cfg.setdefault("open_after", False)
+    cfg.setdefault("asr_model", "small")
     cfg.pop("deepseek_api_key", None)  # 旧版本存过 Key，现在 DeepSeek 走本地 opencode，不再需要
     # claude 和 opencode 装一个就能用，所以这里找不到也不退出
     cfg["claude"] = cfg.get("claude") or shutil.which("claude") or ""
@@ -172,10 +174,13 @@ CACHE_DIR = os.path.join(HERE, "cache")
 USERSCRIPT = "bili-summary.user.js"
 LOG = open(os.path.join(HERE, "server.log"), "a", encoding="utf-8", buffering=1)
 
+# 转写依赖 faster-whisper，体积大，装在单独的虚拟环境里，服务本身仍只用标准库
+ASR_PY = os.path.join(HERE, "asr-venv", "Scripts" if IS_WIN else "bin", "python.exe" if IS_WIN else "python")
+
 jobs = {}  # key -> {"state": queued|running|done|error, "msg": str, "file": str}
 lock = threading.Lock()
 
-PROMPT = """下面是一条 B 站视频的 AI 字幕文字稿（有错字和同音字，按上下文理解）。
+PROMPT = """下面是一条 B 站视频的{source}文字稿（有错字和同音字，按上下文理解）。
 请用中文写总结，严格按下面的格式输出，只输出这些内容，不要任何前言或解释：
 
 TAGS: <3-6 个中文标签，逗号分隔>
@@ -270,24 +275,57 @@ def set_job(key, **kw):
         jobs.setdefault(key, {}).update(kw)
 
 
+def transcribe(key, cfg, bvid, p, duration, txt):
+    if not os.path.exists(ASR_PY):
+        raise RuntimeError("这个视频没有 AI 字幕，转写组件没装好：重新运行安装脚本")
+    proc = subprocess.Popen(
+        [ASR_PY, "-I", os.path.join(HERE, "asr.py"), bvid, str(p), txt, "--model", cfg["asr_model"]],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace", **NO_WINDOW,
+    )
+    # 首次运行要下载模型；超过这个时间多半是卡住了，结束它让按钮能报错、能重试
+    killer = threading.Timer(1800 + duration * 3, proc.kill)
+    killer.start()
+    stage, tail = "转写音频", []
+    try:
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line.startswith("STAGE "):
+                stage = line[6:]
+                set_job(key, msg="无字幕，" + stage)
+            elif line.startswith("PROGRESS "):
+                set_job(key, msg=f"无字幕，{stage} {line[9:]}%")
+            elif line:
+                tail = (tail + [line])[-5:]
+        proc.wait()
+    finally:
+        killer.cancel()
+    if proc.returncode != 0:
+        raise RuntimeError("音频转写失败：" + "\n".join(tail)[-300:])
+
+
 def run_job(key, bvid, p, url, sub_url):
     with cfg_lock:
         cfg = dict(CFG)  # 用点击那一刻的设置，任务进行中改设置不影响它
     try:
-        set_job(key, state="running", msg="下载字幕")
+        set_job(key, state="running", msg="下载字幕" if sub_url else "无字幕，准备转写音频")
         title, up, duration = video_info(bvid, p)
         name = safe_name(title)
         txt = os.path.join(CACHE_DIR, name + ".txt")
-        r = subprocess.run(
-            [sys.executable, "-I", os.path.join(HERE, "sub2txt.py"), sub_url, txt],
-            capture_output=True, text=True, encoding="utf-8", timeout=60, **NO_WINDOW,
-        )
-        if r.returncode != 0:
-            raise RuntimeError("字幕下载失败：" + r.stderr[-300:])
+        if sub_url:
+            r = subprocess.run(
+                [sys.executable, "-I", os.path.join(HERE, "sub2txt.py"), sub_url, txt],
+                capture_output=True, text=True, encoding="utf-8", timeout=60, **NO_WINDOW,
+            )
+            if r.returncode != 0:
+                raise RuntimeError("字幕下载失败：" + r.stderr[-300:])
+        else:
+            transcribe(key, cfg, bvid, p, duration, txt)
         with open(txt, encoding="utf-8") as f:
             text = f.read().replace("\n", " ")
 
         prompt = PROMPT.format(title=title, up=up, text=text,
+                               source="AI 字幕" if sub_url else "语音识别",
                                extra="补充要求（优先遵守）：" + cfg["extra_prompt"].strip() + "\n"
                                if cfg["extra_prompt"].strip() else "")
         if uses_opencode(cfg["model"]):
@@ -402,8 +440,8 @@ class Handler(BaseHTTPRequestHandler):
             log(f"设置已更新：模型 {CFG['model']}，输出到 {out_dir(CFG)}")
             return self._send(200, {"ok": True, "out_dir": out_dir(CFG)})
         bvid, p = req["bvid"], int(req.get("p", 1))
-        sub_url = req["subtitle_url"]
-        if not re.fullmatch(r"BV[0-9A-Za-z]{10}", bvid) or "aisubtitle.hdslb.com" not in sub_url:
+        sub_url = req.get("subtitle_url") or ""  # 空表示没有 AI 字幕，改为转写音频
+        if not re.fullmatch(r"BV[0-9A-Za-z]{10}", bvid) or (sub_url and "aisubtitle.hdslb.com" not in sub_url):
             return self._send(400, {"error": "bad request"})
         key = f"{bvid}-{p}"
         with lock:

@@ -19,6 +19,13 @@ echo "Python：$PY"
 
 "$PY" "$DIR/setup_config.py" "$@"
 
+# 视频没有 AI 字幕时要下载音频转写。转写组件 faster-whisper 有几百 MB，装在单独的虚拟环境里
+echo "安装音频转写组件（首次要下载几百 MB）…"
+if ! { [[ -x "$DIR/asr-venv/bin/python" ]] || "$PY" -m venv "$DIR/asr-venv"; } ||
+   ! "$DIR/asr-venv/bin/python" -m pip install -q --upgrade faster-whisper; then
+  echo "⚠️  转写组件安装失败：有 AI 字幕的视频不受影响，没有字幕的视频会总结失败。可以稍后重新运行安装"
+fi
+
 # launchd 后台进程默认读写不了「文稿/桌面/下载」和 iCloud 里的文件
 VAULT="$("$PY" -c 'import json,sys,os; c=json.load(open(sys.argv[1])); print(os.path.expanduser(c["vault"]))' "$DIR/config.json")"
 for p in "$DIR" "$VAULT"; do

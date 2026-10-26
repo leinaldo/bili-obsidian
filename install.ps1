@@ -23,6 +23,15 @@ Write-Host "Python：$Py"
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $Port = (Get-Content (Join-Path $Dir 'config.json') -Raw -Encoding UTF8 | ConvertFrom-Json).port
 
+# 视频没有 AI 字幕时要下载音频转写。转写组件 faster-whisper 有几百 MB，装在单独的虚拟环境里
+Write-Host '安装音频转写组件（首次要下载几百 MB）…'
+$AsrPy = Join-Path $Dir 'asr-venv\Scripts\python.exe'
+if (-not (Test-Path $AsrPy)) { & $Py -m venv (Join-Path $Dir 'asr-venv') }
+if (Test-Path $AsrPy) { & $AsrPy -m pip install -q --upgrade faster-whisper }
+if (-not (Test-Path $AsrPy) -or $LASTEXITCODE -ne 0) {
+    Write-Host '⚠️  转写组件安装失败：有 AI 字幕的视频不受影响，没有字幕的视频会总结失败。可以稍后重新运行安装'
+}
+
 # 停掉已在运行的旧服务：本目录的，以及占着端口的（可能是装在别的目录里的老版本，
 # 不停掉的话新服务绑不上端口，浏览器拿到的还是老目录里的旧油猴脚本）
 Get-CimInstance Win32_Process -Filter "Name like 'python%'" |

@@ -1,6 +1,6 @@
 # bili-obsidian
 
-在 B 站视频页点一下按钮，就能用 Claude 或 DeepSeek 把视频总结成笔记，存进 Obsidian。支持 macOS 和 Windows。
+在 B 站视频页点一下按钮，就能用 Claude 或 DeepSeek 把视频总结成笔记，存进 Obsidian。视频没有 AI 字幕时，自动下载音频在本机转成文字再总结。支持 macOS 和 Windows。
 
 ![点击按钮后的流程：获取字幕 → Claude 正在总结 → 已存入 Obsidian](docs/demo.gif)
 
@@ -34,8 +34,9 @@ UP 主：CLS同学 ｜ 时长：12:16 ｜ 链接：https://www.bilibili.com/vide
 B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0.1:17321 ──▶ claude -p ──▶ Obsidian/B站总结/<标题>.md
 ```
 
-- **油猴脚本**（`bili-summary.user.js`）：借你已登录的页面加载 AI 字幕，把字幕地址发给本地服务。不读 cookie。
+- **油猴脚本**（`bili-summary.user.js`）：借你已登录的页面加载 AI 字幕，把字幕地址发给本地服务。拿不到字幕时不带地址。不读 cookie。
 - **本地服务**（`server.py`）：下载字幕，调用 Claude Code 命令行写总结，写进 Obsidian，完成后弹系统通知。只监听本机。
+- **音频转写**（`asr.py`）：没有字幕时，本地服务用它下载音频，用 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) 在本机转成文字稿。不上传音频。
 
 ## 准备
 
@@ -44,7 +45,8 @@ B 站视频页（油猴按钮）──字幕地址──▶ 本地服务 127.0.0
   - [opencode](https://opencode.ai)（用 DeepSeek）：运行 `opencode auth login` 选 DeepSeek 并登录。不需要在本工具里填 API Key
 - Python 3.8+（macOS 装了 Xcode 命令行工具就有；Windows 到 python.org 下载，安装时勾选 Add to PATH）
 - 浏览器里装好 [Tampermonkey](https://www.tampermonkey.net/)
-- B 站账号已登录（AI 字幕只对登录用户可见）
+- B 站账号已登录（AI 字幕只对登录用户可见；没登录也能用，但会走更慢的音频转写）
+- 约 1GB 磁盘空间给音频转写：安装脚本把 faster-whisper 装进 `asr-venv/`（约 200MB）；第一次转写时从 ModelScope 下载模型到 `models/`（small 约 500MB），连不上再试 Hugging Face
 
 ## 安装
 
@@ -133,7 +135,7 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
   设置存在本地服务的 `config.json` 里，保存后下次点总结就生效，不用重启服务。
 - 分P视频每一P单独点，笔记标题后面带「P几」。
 - 同一个视频再点一次，会覆盖原来那篇笔记。
-- 视频没有 AI 字幕时，按钮会提示，不会去下音频。
+- 视频没有 AI 字幕时，按钮会显示：无字幕，下载音频 → 无字幕，转写音频 xx% → 正在总结。转写速度约为视频时长的 1/5（M4 Pro 实测：12 分钟视频转写约 2.5 分钟），第一次还要先下载模型。
 
 ## 配置
 
@@ -147,6 +149,7 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 | `extra_prompt` | 附加要求 | 空 |
 | `open_after` | 总结完自动在 Obsidian 里打开 | `false` |
 | `port` | 本地服务端口。改了之后要重新安装一次油猴脚本 | `17321` |
+| `asr_model` | 没有字幕时用的 Whisper 模型：`small`、`medium`、`large-v3-turbo`。越大越准，也越慢、越占磁盘 | `small` |
 | `claude` / `opencode` | 两个命令行的完整路径 | 安装时自动查找 |
 | `browser` | 你看 B 站用的浏览器（`chrome` / `edge` / `brave`），安装时在它里面打开页面 | 安装时选 |
 
@@ -159,9 +162,9 @@ irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 | opencode 失败：… | 终端里运行 `opencode models deepseek` 看模型名，再用 `opencode run -m deepseek/<模型名> "你好"` 看能不能回答。报 Model not found 就重新打开 ⚙ 选列表里的模型；不能就 `opencode auth login` 重新登录 DeepSeek |
 | （不是按钮上的提示）浏览器隔一会儿就自己弹出脚本安装页或更新页 | 多半是同一个浏览器里装了两个 Tampermonkey（Edge 里常见：Edge 商店版和 Chrome 商店版各一个），其中一个里还留着旧版脚本，每次检查更新都要你确认。到 `edge://extensions`（Chrome 是 `chrome://extensions`）只留一个 Tampermonkey。安装脚本检测到这种情况也会提醒 |
 | 设置面板提示没找到 claude / opencode | 装好对应的命令行后，重新运行安装脚本，让它记下路径 |
-| 播放器未登录 | 在这个浏览器里登录 B 站 |
-| 这个视频没有 AI 字幕 | B 站没给这个视频生成字幕，暂不支持 |
-| 字幕没加载出来 | 刷新视频页再点。确认油猴脚本是最新版：浏览器打开 `http://127.0.0.1:17321/bili-summary.user.js` 重新安装 |
+| 无字幕，… 停很久 | 拿不到字幕时会改走音频转写，比字幕慢很多。视频其实有 AI 字幕的话，确认这个浏览器登录了 B 站，刷新视频页再点 |
+| 转写组件没装好 | 重新运行安装脚本，它会装 `asr-venv/` |
+| 音频转写失败：… | 看 `server.log`。下载模型失败多半是网络问题，再点一次会接着下载 |
 
 macOS 上，如果仓库或 Obsidian 库放在「文稿 / 桌面 / 下载」或 iCloud 里，后台服务可能没有读写权限。安装脚本会提示；需要时到「系统设置 → 隐私与安全性 → 完全磁盘访问权限」里加上安装时显示的那个 python3。
 
