@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "B站视频总结",
+  "version": "1.0.0",
+  "description": "一键把 B 站视频总结成笔记：本地 Claude Code / Codex / opencode 或各家 API，导出到 Obsidian、Notion、Markdown、思维导图",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7duX0UBY5h2DrlU797RPx+F7nwjqDgrjyQ/q21VvfJRbDGIlh4YcLmHdy7xE5e/puqL5NELuh+2Z9W9PlYUasgz3SzYT+DNxFUdBN93IAP1h9GEQDK+KI7vmJ8YwtC741YKfwQmx+Ltd5T4w6IdwvQKhTmcU7pODqvaiLXrpyDS+ChFpggYnP9WViuRioKaEG6njJtDxpl9lpxZZ6YnA5/ydqPaaL8LfVG0PHcTI7BfsGlZ52HPjRTzyo5G4cMjgQeYilec54v6+oRkjZM7lg1TaM5wGemkWtuYkxe18pcCPf3yEbkulIWx/zgB6xW10Dp8yjgNZgbGjrnDiePlcVQIDAQAB",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "B站视频总结",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "nativeMessaging",
+    "sidePanel",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://*.bilibili.com/*",
+    "https://*.hdslb.com/*",
+    "https://api.notion.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.bilibili.com/video/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

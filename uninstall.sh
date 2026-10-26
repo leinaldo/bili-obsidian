@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# macOS 卸载：停掉并移除后台服务。已生成的笔记和配置不会删除。
+# macOS 卸载：取消各浏览器里的本地服务注册。已生成的笔记不会删除。
 set -euo pipefail
-LABEL="local.bili-obsidian"
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-rm -f "$HOME/Library/LaunchAgents/$LABEL.plist"
-echo "✓ 后台服务已移除。记得在 Tampermonkey 里删掉「B站总结到 Obsidian」脚本"
+NAME="com.leinaldo.bili_obsidian"
+find "$HOME/Library/Application Support" -maxdepth 4 -path "*/NativeMessagingHosts/$NAME.json" -delete 2>/dev/null || true
+echo "✓ 本地服务已取消注册。最后在浏览器的扩展管理页里移除「B站视频总结」扩展"
+echo "  想释放磁盘空间，再删掉这个文件夹：$(cd "$(dirname "$0")" && pwd)"

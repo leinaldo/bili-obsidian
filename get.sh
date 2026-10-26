@@ -2,7 +2,7 @@
 # 一行安装 / 更新（macOS）：
 #   curl -fsSL https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.sh | bash
 # 下载最新代码到 ~/tools/bili-obsidian（可用 BILI_OBSIDIAN_DIR 改位置），再运行 install.sh。
-# 重复运行就是更新：config.json、缓存和日志不在代码包里，会原样保留。
+# 重复运行就是更新：转写组件、模型、缓存和日志不在代码包里，会原样保留；设置存在浏览器扩展里。
 # 给 install.sh 传参数：curl … | bash -s -- --vault ~/my-vault
 set -euo pipefail
 

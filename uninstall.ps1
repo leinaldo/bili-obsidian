@@ -1,9 +1,8 @@
-﻿# Windows 卸载：停掉后台服务并删掉开机自启的快捷方式。已生成的笔记和配置不会删除。
+﻿# Windows 卸载：取消各浏览器里的本地服务注册。已生成的笔记不会删除。
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$Dir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Server = Join-Path $Dir 'server.py'
-Get-CimInstance Win32_Process -Filter "Name like 'python%'" |
-    Where-Object { $_.CommandLine -like "*$Server*" } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path ([Environment]::GetFolderPath('Startup')) 'bili-obsidian.lnk')
-Write-Host '✓ 后台服务已移除。记得在 Tampermonkey 里删掉「B站总结到 Obsidian」脚本'
+$Name = 'com.leinaldo.bili_obsidian'
+foreach ($k in @('Google\Chrome', 'Microsoft\Edge', 'BraveSoftware\Brave-Browser', 'Chromium')) {
+    Remove-Item -Path "HKCU:\Software\$k\NativeMessagingHosts\$Name" -Force -ErrorAction SilentlyContinue
+}
+Write-Host '✓ 本地服务已取消注册。最后在浏览器的扩展管理页里移除「B站视频总结」扩展'
+Write-Host "  想释放磁盘空间，再删掉这个文件夹：$(Split-Path -Parent $MyInvocation.MyCommand.Path)"

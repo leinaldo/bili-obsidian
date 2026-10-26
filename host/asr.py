@@ -2,9 +2,11 @@
 
 用法: asr-venv/bin/python -I asr.py <BV号> <分P> <输出.txt> [--model small]
 
-由 server.py 用 asr-venv 里的 Python 调用。进度按行打印到标准输出：
+由 bili_host.py 用 asr-venv 里的 Python 调用。进度按行打印到标准输出：
   STAGE <说明>   PROGRESS <0-100>
 其余输出都当日志。
+
+输出和扩展里整理字幕的格式一致：约每 30 秒一段，段首带 [mm:ss]，模型据此写原片跳转。
 """
 import json
 import os
@@ -109,10 +111,17 @@ def main():
         segs, info = wm.transcribe(audio, language="zh", vad_filter=True,
                                    initial_prompt="以下是普通话的句子，使用简体中文。")
         say("STAGE 转写音频")
-        lines = []
+        lines, cur, start = [], [], None
         for s in segs:
-            lines.append(s.text.strip())
+            if start is None:
+                start = s.start
+            cur.append(s.text.strip())
+            if s.end - start >= 30:
+                lines.append(f"[{stamp(start)}] " + " ".join(cur))
+                cur, start = [], None
             say(f"PROGRESS {min(99, int(s.end * 100 / max(info.duration, 1)))}")
+        if cur:
+            lines.append(f"[{stamp(start)}] " + " ".join(cur))
     finally:
         os.remove(audio)
     if not lines:
@@ -120,6 +129,13 @@ def main():
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     say(f"DONE {len(lines)} lines, {sum(map(len, lines))} chars")
+
+
+def stamp(sec):
+    sec = int(sec)
+    if sec >= 3600:
+        return f"{sec // 3600}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
+    return f"{sec // 60:02d}:{sec % 60:02d}"
 
 
 if __name__ == "__main__":

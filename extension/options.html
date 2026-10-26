@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B站视频总结 · 设置</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  body { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  section { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  label.field { display: block; margin: 12px 0 4px; color: var(--muted); font-size: 13px; }
+  .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .choice { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .choice input { margin-top: 4px; }
+  .choice b { display: block; font-weight: 600; }
+  .choice span { font-size: 12px; color: var(--muted); }
+  .check { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+  .provider { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-top: 8px; display: grid; gap: 6px;
+              grid-template-columns: 1fr 1fr; }
+  .provider .full { grid-column: 1 / -1; }
+  #saved { position: fixed; right: 16px; bottom: 16px; background: var(--ok); color: #fff; padding: 4px 12px; border-radius: 6px;
+           font-size: 13px; opacity: 0; transition: opacity .3s; }
+  #saved.show { opacity: 1; }
+  pre { background: var(--soft); padding: 8px 10px; border-radius: 6px; overflow: auto; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>B站视频总结 · 设置</h1>
+<div class="faint">改动自动保存，下次总结生效。</div>
+
+<section>
+  <h2>本地服务</h2>
+  <div id="hostStatus" class="muted">检查中…</div>
+</section>
+
+<section>
+  <h2>模型</h2>
+  <div class="choices" id="engines"></div>
+  <label class="field" for="model">模型名</label>
+  <input type="text" id="model" list="modelList" placeholder="留空用这个工具的默认模型">
+  <datalist id="modelList"></datalist>
+  <div id="customBox" hidden>
+    <label class="field" for="customCommand">自定义命令</label>
+    <input type="text" id="customCommand" placeholder="例如：kimi --print 或 cursor-agent -p --output-format text">
+    <div class="faint">提示词从标准输入传给命令，命令的标准输出就是笔记。命令要能在非交互模式下运行。</div>
+  </div>
+  <div id="engineHint" class="faint"></div>
+
+  <label class="field">API 服务（OpenAI 兼容接口）</label>
+  <div id="providers"></div>
+  <div class="row" style="margin-top:8px">
+    <select id="preset" class="grow"></select>
+    <button id="addProvider">添加</button>
+  </div>
+</section>
+
+<section>
+  <h2>笔记风格</h2>
+  <div class="choices" id="styles"></div>
+  <label class="field">附加内容</label>
+  <label class="check"><input type="checkbox" id="fmtLink"> 原片跳转：每节标题后加时间，点击跳到视频对应位置</label>
+  <label class="check"><input type="checkbox" id="fmtToc"> 目录：正文前列出所有小节</label>
+  <label class="check"><input type="checkbox" id="fmtTranscript"> 附上文字稿：放在笔记末尾的折叠区</label>
+  <label class="field" for="extraPrompt">附加要求（可选，会加进给模型的指令里）</label>
+  <textarea id="extraPrompt" placeholder="例如：主要内容控制在 5 条以内；最后加一节「我的思考」留空"></textarea>
+</section>
+
+<section>
+  <h2>导出</h2>
+  <div class="faint">勾选「自动」的方式会在总结完立即执行；所有方式都可以在侧边栏里手动点。</div>
+
+  <label class="field">本地文件夹（Obsidian、Logseq、思源等的库都是文件夹）</label>
+  <label class="check"><input type="checkbox" id="folderAuto"> 自动保存到这个文件夹</label>
+  <div class="row">
+    <input type="text" id="folderDir" class="grow" placeholder="完整路径，例如 /Users/me/Notes/B站总结">
+    <button id="pickFolder">选择…</button>
+  </div>
+  <div class="row" id="vaults" style="margin-top:6px"></div>
+  <label class="check"><input type="checkbox" id="openObsidian"> 保存后在 Obsidian 里打开</label>
+
+  <label class="field">Markdown 文件</label>
+  <label class="check"><input type="checkbox" id="downloadAuto"> 自动下载 .md 到「下载/B站总结」</label>
+
+  <label class="field">Notion</label>
+  <label class="check"><input type="checkbox" id="notionAuto"> 自动发到 Notion 数据库</label>
+  <input type="password" id="notionToken" placeholder="集成密钥（ntn_ 或 secret_ 开头）">
+  <input type="text" id="notionDb" placeholder="数据库网址或 ID" style="margin-top:6px">
+  <div class="row" style="margin-top:6px"><button id="notionTest">测试</button><span id="notionMsg" class="faint"></span></div>
+  <div class="faint">在 <a href="https://www.notion.so/profile/integrations" target="_blank">Notion 集成页</a> 新建内部集成拿密钥，再在数据库页右上角「⋯ → 连接」里加上这个集成。
+    数据库的标题、第一个网址属性、第一个多选属性、第一个日期属性，会分别填视频标题、链接、标签、日期。</div>
+
+  <label class="field">思维导图</label>
+  <div class="faint">在侧边栏的「思维导图」页查看，可导出 HTML（离线可打开、可缩放）或 SVG。</div>
+</section>
+
+<section>
+  <h2>音频转写（视频没有 AI 字幕时）</h2>
+  <select id="asrModel">
+    <option value="small">small：约 500MB，速度约为视频时长的 1/5（推荐）</option>
+    <option value="medium">medium：约 1.5GB，更准，慢约 2 倍</option>
+    <option value="large-v3-turbo">large-v3-turbo：约 1.6GB，最准，慢约 3 倍</option>
+  </select>
+  <div id="asrStatus" class="faint"></div>
+</section>
+
+<div id="saved">已保存</div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

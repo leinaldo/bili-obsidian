@@ -4,4 +4,8 @@ cache/
 __pycache__/
 .DS_Store
 asr-venv/
-models/
+host/models/
+clis.json
+host/run_host.sh
+host/run_host.bat
+host/native-host.json

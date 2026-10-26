@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B站视频总结</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; }
+  header { padding: 10px 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  #status { font-size: 13px; min-height: 20px; }
+  #status.running::before { content: "⏳ "; }
+  .tabs { display: flex; gap: 4px; padding: 8px 12px 0; border-bottom: 1px solid var(--line); }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 4px 10px; color: var(--muted); }
+  .tabs button.on { border-bottom-color: var(--accent); color: var(--fg); }
+  main { flex: 1; overflow: auto; position: relative; }
+  #note { padding: 4px 16px 24px; }
+  #note h1 { font-size: 18px; } #note h2 { font-size: 16px; margin-top: 18px; } #note h3 { font-size: 14px; }
+  #note img { max-width: 100%; }
+  #note details { margin-top: 16px; background: var(--soft); border-radius: 6px; padding: 8px 10px; white-space: pre-wrap; font-size: 12px; }
+  #mind { position: absolute; inset: 0; }
+  #mind svg { width: 100%; height: 100%; }
+  .actions { padding: 8px 12px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
+  .actions[hidden] { display: none; }
+  .actions button { font-size: 12px; padding: 4px 9px; }
+  #msg { padding: 0 12px 8px; font-size: 12px; min-height: 18px; word-break: break-all; }
+  .empty { padding: 32px 16px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <button id="run" class="primary">总结当前视频</button>
+    <select id="history" class="grow" title="历史笔记"></select>
+    <button id="settings" title="设置">⚙</button>
+  </div>
+  <div id="status" class="muted"></div>
+</header>
+<div class="tabs"><button data-tab="note" class="on">笔记</button><button data-tab="mind">思维导图</button></div>
+<main>
+  <div id="note"></div>
+  <div id="mind" hidden><svg></svg></div>
+  <div id="empty" class="empty muted" hidden>还没有笔记。打开一个 B 站视频，点「总结当前视频」或页面右下角的紫色按钮。</div>
+</main>
+<div class="actions" id="noteActions">
+  <button data-act="copy">复制 Markdown</button>
+  <button data-act="download">下载 .md</button>
+  <button data-act="folder">存到文件夹</button>
+  <button data-act="notion">发到 Notion</button>
+  <button data-act="redo" title="用当前设置重新总结这个视频">重新总结</button>
+  <button data-act="delete">删除</button>
+</div>
+<div class="actions" id="mindActions" hidden>
+  <button data-act="mindHtml">导出 HTML</button>
+  <button data-act="mindSvg">导出 SVG</button>
+  <button data-act="mindFit">适应窗口</button>
+</div>
+<div id="msg"></div>
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/markmap-view.js"></script>
+<script src="vendor/marked.umd.js"></script>
+<script type="module" src="sidepanel.js"></script>
+</body>
+</html>

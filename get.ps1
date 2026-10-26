@@ -1,7 +1,7 @@
 # 一行安装 / 更新（Windows，在 PowerShell 里运行）：
 #   irm https://raw.githubusercontent.com/leinaldo/bili-obsidian/main/get.ps1 | iex
 # 下载最新代码到 %USERPROFILE%\tools\bili-obsidian（可用环境变量 BILI_OBSIDIAN_DIR 改位置），再运行 install.ps1。
-# 重复运行就是更新：config.json、缓存和日志不在代码包里，会原样保留。
+# 重复运行就是更新：转写组件、模型、缓存和日志不在代码包里，会原样保留；设置存在浏览器扩展里。
 # 注意：这个文件不带 BOM，是给 irm | iex 用的；本地运行请用 install.cmd。
 & {
     $ErrorActionPreference = 'Stop'

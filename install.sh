@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# macOS 安装：生成配置，注册开机自启的后台服务（launchd），并检查服务是否起来。
-# 用法: ./install.sh [--vault 库路径] [--folder 文件夹名] [--model sonnet] [--port 17321]
+# macOS 安装：装音频转写组件，记下本机 agent 命令行的路径，给 Chrome / Edge / Brave / Arc 注册本地服务，
+# 然后引导你加载浏览器扩展。重复运行就是更新。
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-LABEL="local.bili-obsidian"
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+NAME="com.leinaldo.bili_obsidian"
+EXT_ID="kcoaeghgmnflfeonjdpodfeakekcofga"  # 由 extension/manifest.json 里的 key 决定
 
 [[ "$(uname)" == "Darwin" ]] || { echo "这个脚本只支持 macOS，Windows 请用 install.ps1"; exit 1; }
 
@@ -17,7 +17,13 @@ done
 [[ -n "$PY" ]] || { echo "需要 Python 3.8+。可以运行 xcode-select --install 安装"; exit 1; }
 echo "Python：$PY"
 
-"$PY" "$DIR/setup_config.py" "$@"
+# 旧版本（油猴脚本 + 后台 HTTP 服务）留下的开机自启服务，新版本不再需要
+OLD_PLIST="$HOME/Library/LaunchAgents/local.bili-obsidian.plist"
+if [[ -f "$OLD_PLIST" ]]; then
+  launchctl bootout "gui/$(id -u)/local.bili-obsidian" 2>/dev/null || true
+  rm -f "$OLD_PLIST"
+  echo "已移除旧版本的后台服务。记得在 Tampermonkey 里删掉旧的「B站总结到 Obsidian」脚本"
+fi
 
 # 视频没有 AI 字幕时要下载音频转写。转写组件 faster-whisper 有几百 MB，装在单独的虚拟环境里
 echo "安装音频转写组件（首次要下载几百 MB）…"
@@ -26,134 +32,82 @@ if ! { [[ -x "$DIR/asr-venv/bin/python" ]] || "$PY" -m venv "$DIR/asr-venv"; } |
   echo "⚠️  转写组件安装失败：有 AI 字幕的视频不受影响，没有字幕的视频会总结失败。可以稍后重新运行安装"
 fi
 
-# launchd 后台进程默认读写不了「文稿/桌面/下载」和 iCloud 里的文件
-VAULT="$("$PY" -c 'import json,sys,os; c=json.load(open(sys.argv[1])); print(os.path.expanduser(c["vault"]))' "$DIR/config.json")"
-for p in "$DIR" "$VAULT"; do
-  case "$p" in
-    "$HOME/Documents"*|"$HOME/Desktop"*|"$HOME/Downloads"*|"$HOME/Library/Mobile Documents"*)
-      echo "⚠️  $p 在受保护目录里，后台服务可能没有权限读写。"
-      echo "   如果总结失败，到「系统设置 → 隐私与安全性 → 完全磁盘访问权限」里加上 $PY" ;;
-  esac
-done
+# 浏览器启动本地服务时 PATH 很短，找不到 nvm、Homebrew 里的命令；这里在你的登录 shell 里查好记下来
+echo "查找本机的 agent 命令行…"
+"$PY" - "$DIR/clis.json" "${SHELL:-/bin/zsh}" <<'PY'
+import json, subprocess, sys
+out, shell = sys.argv[1], sys.argv[2]
+found = {}
+for c in ("claude", "codex", "opencode", "gemini", "qwen"):
+    try:
+        r = subprocess.run([shell, "-lic", f"command -v {c}"], capture_output=True, text=True, timeout=20,
+                           stdin=subprocess.DEVNULL)
+        path = next((ln for ln in reversed(r.stdout.splitlines()) if ln.startswith("/")), "")
+    except subprocess.TimeoutExpired:
+        path = ""
+    if path:
+        found[c] = path
+    print(f"  {c}：{path or '未安装'}")
+json.dump(found, open(out, "w"), indent=2)
+if not found:
+    print("  没找到任何 agent 命令行。也可以在扩展设置里改用 API（DeepSeek、通义千问、Kimi 等）")
+PY
 
-mkdir -p "$HOME/Library/LaunchAgents"
-cat > "$PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array><string>$PY</string><string>$DIR/server.py</string></array>
-  <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardErrorPath</key><string>$DIR/launchd.log</string>
-</dict>
-</plist>
-PLIST
+# 本地服务的启动脚本：manifest 里的 path 必须是可执行文件
+cat > "$DIR/host/run_host.sh" <<SH
+#!/bin/bash
+exec "$PY" "$DIR/host/bili_host.py" "\$@"
+SH
+chmod +x "$DIR/host/run_host.sh"
 
-# bootout 是异步的：旧服务没完全卸载时立刻 bootstrap 会报 Input/output error，所以等它卸干净再注册
-launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-for _ in $(seq 20); do
-  launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || break
-  sleep 0.5
-done
-for attempt in 1 2 3; do
-  launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null && break
-  [[ $attempt == 3 ]] && { echo "✗ 注册后台服务失败，稍等几秒再运行一次安装脚本"; exit 1; }
-  sleep 1
-done
-
-# 打开油猴脚本的地址，Tampermonkey 会弹出安装页，点「安装」即可；以后脚本更新也会自动拉取。
-# 浏览器不允许程序替你点安装，这一下只能你自己点。
-install_userscript() {
-  local url="http://127.0.0.1:$PORT/bili-summary.user.js"
-  # 已经装过油猴脚本时（比如只是更新），设 BILI_OBSIDIAN_NO_BROWSER=1 跳过打开浏览器；脚本会自己从本地服务更新
-  if [[ -n "${BILI_OBSIDIAN_NO_BROWSER:-}" ]]; then
-    echo "跳过打开浏览器。油猴脚本没装的话，手动打开：$url"
-    return
-  fi
-  # 选你看 B 站用的那个浏览器（装了 Tampermonkey 的；有多个会问你，选过会记住），之后的页面都在它里面打开
-  local pick app="" scheme="" ext="" prof="" name=""
-  pick="$("$PY" -I "$DIR/pick_browser.py")"
-  if [[ "$pick" != "{}" ]]; then
-    local extra=0
-    IFS=$'\t' read -r app scheme ext prof name extra < <("$PY" -c 'import json,sys; d=json.load(sys.stdin); print("\t".join(str(d[k]) for k in ("app", "scheme", "id", "profile", "name", "extra")))' <<<"$pick")
-    echo
-    echo "在 $name 里打开页面（要换浏览器：BILI_OBSIDIAN_BROWSER=chrome/edge/brave 再运行一次安装）"
-    if [[ "$extra" != "0" && -n "$extra" ]]; then
-      echo "⚠️  $name 里装了不止一个 Tampermonkey（比如 Edge 商店版和 Chrome 商店版各一个）。"
-      echo "   这样油猴脚本会被装两份：另一份停在旧版本，Tampermonkey 会不停弹出更新页。"
-      echo "   打开 $scheme://extensions ，只留一个 Tampermonkey，把另一个移除。"
-    fi
-  fi
-  # 油猴脚本运行时会向本地服务报到版本；已经是最新版就不用再打开安装页（以后的更新它会自己拉）。
-  # 能报到也说明「允许用户脚本」是开着的，所以后面的检查也一起跳过
-  local seen
-  if seen="$("$PY" -I "$DIR/userscript_seen.py")"; then
-    echo "✓ 油猴脚本已装好并在运行（$seen），不用再打开安装页"
-    return
-  fi
-  if [[ -z "$app" ]]; then
-    echo
-    echo "没检测到 Tampermonkey，正在打开扩展商店，装好后回到终端按回车继续"
-    open "https://chromewebstore.google.com/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo"
-    [[ -t 0 ]] && read -r _
-  fi
-  # 「允许用户脚本」只能用户自己开；这里只读检查：0 已开，1 没开，2 查不到
-  local us=2
-  [[ -n "$prof" ]] && { "$PY" -I "$DIR/userscripts_status.py" "$prof" "$ext"; us=$?; } || true
-
-  echo
-  if [[ $us == 0 ]]; then
-    echo "✓ Tampermonkey 的「允许用户脚本」已开启"
-    echo "接下来在 Tampermonkey 安装页上点「安装」，然后刷新 B 站视频页（没弹出的话手动打开 $url）"
-    open -a "$app" "$url"
-    return
-  fi
-  echo "接下来在浏览器里做两件事，然后刷新 B 站视频页："
-  echo "  1. Tampermonkey 安装页：点「安装」（没弹出的话手动打开 $url）"
-  if [[ -z "$app" ]]; then
-    echo "  2. 打开浏览器的扩展管理页（Chrome 是 chrome://extensions），进 Tampermonkey 的「详细信息」，打开「允许用户脚本」"
-    open "$url"
-    return
-  fi
-  echo "  2. Tampermonkey 扩展详情页：打开「允许用户脚本」开关"
-  # 先开详情页、再开安装页：安装页在最前面，点完安装它会自己关掉，露出详情页
-  open -a "$app" "$scheme://extensions/?id=$ext"
-  open -a "$app" "$url"
-  [[ $us == 1 ]] || return  # 查不到状态就不等了
-
-  echo
-  echo "等你打开「允许用户脚本」…（最多等 3 分钟，按 Ctrl+C 可跳过）"
-  local i
-  for i in $(seq 90); do
-    sleep 2
-    # 浏览器改完设置要过几秒才写进配置文件
-    if "$PY" -I "$DIR/userscripts_status.py" "$prof" "$ext"; then
-      echo "✓ 「允许用户脚本」已开启"
-      return
-    fi
-  done
-  echo "还没检测到开启。装好后如果 B 站页面上没有按钮，回到扩展详情页把「允许用户脚本」打开再刷新"
+MANIFEST="$(cat <<JSON
+{
+  "name": "$NAME",
+  "description": "B站视频总结的本地服务",
+  "path": "$DIR/host/run_host.sh",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://$EXT_ID/"]
 }
-
-PORT="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$DIR/config.json")"
-for _ in 1 2 3 4 5; do
-  sleep 1
-  if H="$(curl -sf -H 'X-Bili-Summary: 1' "http://127.0.0.1:$PORT/health")"; then
-    SERVED="$("$PY" -c 'import json,sys; print(json.load(sys.stdin).get("dir", ""))' <<<"$H")"
-    if [[ -n "$SERVED" && "$SERVED" != "$DIR" ]]; then
-      echo "✗ 端口 $PORT 上应答的是另一个目录的服务：$SERVED"
-      echo "  用 lsof -i :$PORT 找到它的进程并结束，再重新运行安装脚本"
-      exit 1
-    fi
-    echo "✓ 后台服务已启动（端口 $PORT），开机会自动运行"
-    install_userscript
-    exit 0
-  fi
+JSON
+)"
+SUPPORT="$HOME/Library/Application Support"
+REGISTERED=()
+for b in "Google/Chrome:Chrome" "Google/Chrome Beta:Chrome Beta" "Microsoft Edge:Edge" \
+         "BraveSoftware/Brave-Browser:Brave" "Chromium:Chromium" "Arc/User Data:Arc" "Vivaldi:Vivaldi"; do
+  sub="${b%%:*}"; label="${b##*:}"
+  [[ -d "$SUPPORT/$sub" ]] || continue
+  mkdir -p "$SUPPORT/$sub/NativeMessagingHosts"
+  printf '%s\n' "$MANIFEST" > "$SUPPORT/$sub/NativeMessagingHosts/$NAME.json"
+  REGISTERED+=("$label")
 done
-echo "✗ 服务没起来，看看 $DIR/launchd.log 和 $DIR/server.log"
-exit 1
+if [[ ${#REGISTERED[@]} -eq 0 ]]; then
+  echo "✗ 没找到 Chrome、Edge、Brave 等浏览器"
+  exit 1
+fi
+echo "✓ 已给这些浏览器注册本地服务：${REGISTERED[*]}"
+
+# 按浏览器的方式启动一次本地服务，确认它能正常应答
+if "$PY" - "$DIR/host/run_host.sh" <<'PY'
+import json, struct, subprocess, sys
+p = subprocess.Popen([sys.argv[1]], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+msg = json.dumps({"id": 1, "cmd": "hello"}).encode()
+out, _ = p.communicate(struct.pack("=I", len(msg)) + msg, timeout=60)
+r = json.loads(out[4:4 + struct.unpack("=I", out[:4])[0]])
+assert r["type"] == "result", r
+print("✓ 本地服务自检通过：命令行 " + ("、".join(c["name"] for c in r["clis"]) or "无") +
+      "；音频转写 " + ("可用" if r["asr"] else "不可用"))
+PY
+then :; else echo "✗ 本地服务自检失败，看 $DIR/host.log"; exit 1; fi
+
+EXT="$DIR/extension"
+echo
+echo "最后一步：在浏览器里加载扩展（只需一次，以后更新代码后在扩展页点「重新加载」即可）"
+echo "  1. 打开扩展管理页（Chrome：chrome://extensions，Edge：edge://extensions），打开右上角「开发者模式」"
+echo "  2. 点「加载已解压的扩展程序」，选择这个文件夹："
+echo "     $EXT"
+echo "     （路径已复制到剪贴板；在选择窗口里按 Cmd+Shift+G 粘贴）"
+echo "  3. 如果浏览器之前开着，完全退出再打开一次，让它读到本地服务"
+printf '%s' "$EXT" | pbcopy
+if [[ -t 0 && -z "${BILI_OBSIDIAN_NO_BROWSER:-}" && -d "/Applications/Google Chrome.app" ]]; then
+  open -a "Google Chrome" "chrome://extensions" || true
+fi
