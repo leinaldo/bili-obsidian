@@ -5,8 +5,18 @@ import { safeName, toMarkdown } from './lib/prompt.js';
 import { loadSettings } from './lib/settings.js';
 
 const $ = s => document.querySelector(s);
-// 笔记是模型生成的，不渲染里面的原始 HTML；文字稿单独用纯文本显示
-marked.use({ renderer: { html: () => '' } });
+// 笔记是模型生成的，可能被字幕里的注入指令带偏：不渲染原始 HTML，图片只显示替代文字，
+// 免得一张远程图片的网址把笔记内容带出去。文字稿单独用纯文本显示
+const escText = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// 链接只保留 http(s)：javascript: 之类的链接在导出的思维导图 HTML 里点一下就会执行
+marked.use({ renderer: {
+  html: () => '',
+  image: ({ text }) => escText(text || ''),
+  link({ href, tokens }) {
+    const text = this.parser.parseInline(tokens);
+    return /^https?:\/\//i.test(href) ? `<a href="${escText(href)}">${text}</a>` : text;
+  },
+} });
 
 let notes = [], current = null, tabKey = null, tabId = null, mm = null, tab = 'note';
 

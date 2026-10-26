@@ -56,6 +56,8 @@ export async function standaloneHtml(tree, title) {
   const data = JSON.stringify(tree).replace(/</g, '\\u003c');
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https://*.hdslb.com">
+<!-- 笔记由模型生成，禁止这个文件发出任何网络请求；链接在生成时已只保留 http(s) -->
 <title>${esc(title)}</title>
 <style>html,body{margin:0;height:100%}svg{width:100%;height:100%}</style></head>
 <body><svg id="mm"></svg>
